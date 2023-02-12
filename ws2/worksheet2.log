@@ -1,0 +1,38 @@
+    1  sudo apt install gcc
+    2  cd ~/Desktop/cs149
+    3  cd WS1
+    4  ls 0latr
+    5  ls -latr
+    6  history > cmds.log
+    7  pwd
+    8  cd ~
+    9  cd Desktop/
+   10  ls -latr ; mkdir cs149 ; cd cs149
+   11  git init
+   12  git remote add origin https://github.com/CSRomanS/cs149.git
+   13  git config--global user.email "roman.shpilberg@sjsu.edu"
+   14  git config --global user.email "roman.shpilberg@sjsu.edu"
+   15  git config --global user.name "Roman Shpilberg"
+   16  mkdir WS1
+   17  git add .
+   18  wget -O out.pdf https://tinyurl.com/yy94jltt
+   19  ls -latr
+   20  cd WS1
+   21  wget -O out.pdf https://tinyurl.com/yy94jltt
+   22  git add .
+   23  ls -latr
+   24  git rm out.pdf
+   25  git rm -f out.pdf
+   26  git reset
+   27  date
+   28  pwd
+   29  cd ~
+   30  cd Desktop/cd149/
+   31  cd Desktop/cs149/
+   32  ls -latr ; mkdir ws2 ; cd ws2
+   33  ls -latr
+   34  echo $?
+   35  man ps
+   36  ps aux
+   37  top
+   38  history > worksheet2.log
