@@ -34,11 +34,11 @@ int main(int argc, char *argv[]){
     char nameCursor[COLS];
     while(fgets(nameCursor, COLS+1, nameFile)){
         if (nameCursor[strlen(nameCursor) - 1] == '\n') nameCursor[strlen(nameCursor) - 1] = '\0';
-        if (nameCursor == NULL){continue;};
+        if (strlen(nameCursor) == 0)continue; // filters empty lines
         //printf(nameCursor);
         int index = inList(names, nameCursor, nameIndex);
         if(index<0){ // if no name found, add on name
-            printf("No name Found, Adding: %s\n", nameCursor);
+            //printf("No name Found, Adding: %s\n", nameCursor);
             for(int i=0;i<COLS;i++){
                 names[nameIndex][i] = nameCursor[i]; // copy a letter
 
@@ -61,22 +61,22 @@ int main(int argc, char *argv[]){
  */
 int inList(char list[ROWS][COLS], char name[COLS], int maxNames){
     for(int i=0; i<maxNames; i++){ // go through names
-        printf("Comparing [%s] to [%s]\n", list[i], name);
-        for(int j=0; i<COLS; j++) { // go through specific name
-            if (list[ROWS][COLS] != name[j]) {
+        //printf("Comparing [%s] to [%s]\n", list[i], name);
+        for(int j=0; j<COLS; j++) { // go through specific name
+            if (list[i][j] != name[j]) {
                 break; // goes on to next name
             }
-            printf("\tFound Match\n");
+            //printf("\tFound Match\n");
             return i; // return the index found
         }
     }
-    printf("\tNo Match\n");
+    //printf("\tNo Match\n");
     return -1; // no match found
 
 }
 
 void printNameCount(char list[ROWS][COLS], int arrCount[ROWS], int maxNames){
-    printf("Printing Table:");
+    printf("Printing Table:\n");
     for(int i=0; i<maxNames; i++){
         printf("%s: %d\n", list[i], arrCount[i]);
     }
