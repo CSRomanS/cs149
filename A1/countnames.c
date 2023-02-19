@@ -32,9 +32,14 @@ int main(int argc, char *argv[]){
     }
 
     char nameCursor[COLS];
+    int lineCount = 0; // keeps a count of the number of lines read
     while(fgets(nameCursor, COLS+1, nameFile)){
+        lineCount++;
         if (nameCursor[strlen(nameCursor) - 1] == '\n') nameCursor[strlen(nameCursor) - 1] = '\0';
-        if (strlen(nameCursor) == 0)continue; // filters empty lines
+        if (strlen(nameCursor) == 0){ // filters empty lines
+            fprintf(stderr, "\tWarning - Line %d is empty.\n", lineCount);
+        }
+
         //printf(nameCursor);
         int index = inList(names, nameCursor, nameIndex);
         if(index<0){ // if no name found, add on name
