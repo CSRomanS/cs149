@@ -1,0 +1,46 @@
+    1  sudo apt install gcc
+    2  cd ~/Desktop/cs149
+    3  cd WS1
+    4  ls 0latr
+    5  ls -latr
+    6  history > cmds.log
+    7  pwd
+    8  cd ~
+    9  cd Desktop/
+   10  ls -latr ; mkdir cs149 ; cd cs149
+   11  git init
+   12  git remote add origin https://github.com/CSRomanS/cs149.git
+   13  git config--global user.email "roman.shpilberg@sjsu.edu"
+   14  git config --global user.email "roman.shpilberg@sjsu.edu"
+   15  git config --global user.name "Roman Shpilberg"
+   16  mkdir WS1
+   17  git add .
+   18  wget -O out.pdf https://tinyurl.com/yy94jltt
+   19  ls -latr
+   20  cd WS1
+   21  wget -O out.pdf https://tinyurl.com/yy94jltt
+   22  git add .
+   23  ls -latr
+   24  git rm out.pdf
+   25  git rm -f out.pdf
+   26  git reset
+   27  cmake --build . --target countnames
+   28  sudo apt install cmake
+   29  cmake --build . --target countnames
+   30  countnames names.txt
+   31  ./countnames names.txt
+   32  countnames.c names.txt
+   33  gcc -o countnames countnames.c
+   34  countnames names.txt
+   35  ./countnames names.txt
+   36  wget https://github.com/torvalds/linux/archive/master.zip
+   37  unzip master.zip
+   38  cd linux-master
+   39  pwd
+   40  alias l='ls -latr'
+   41  l
+   42  find . -name mem.c
+   43  find . -name mem.c | xargs head
+   44  find . -name mem.c | xargs grep 86
+   45  cd ..
+   46  history > worksheet3.log
