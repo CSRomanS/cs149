@@ -3,8 +3,8 @@
  *              Uses a seperate process for each file entered, results are piped to the parent
  * Author Name: Roman Shpilberg
  * Author Emails: roman.shpilberg@sjsu.edu
- * Last Modified Date: 2/20/2023
- * Creation Date: 2/16/2023
+ * Last Modified Date: 3/2/2023
+ * Creation Date: 3/1/2023
  */
 
 #include <stdio.h>
@@ -21,66 +21,66 @@ void printNameCount(char list[ROWS][COLS], int arrCount[ROWS], int maxNames);
 int loadNames(char nameTable[ROWS][COLS], int nameCount[COLS], char fileName[]);
 
 int main(int argc, char *argv[]){
-
+    char names[ROWS][COLS];
+    int nameCount[ROWS];
 
     //printf("%d\n", argc);
 
-    int fd1[2*argc]; // holds the pipes
+    int pipes[2*(argc-1)]; // holds the pipes
+    int pidArr[argc-1]; // pid to pipe correlation
 
-    // pipe creation
-    /*if(pipe(fd1)==-1){
-        fprintf(stderr, "Pipe Failed");
-        return 1;
-    }*/
-
-    // fork spawning loop
+    // child spawning loop
     pid_t pid;
     for(int i=0; i<argc-1; i++){
-        if(pipe(&fd1[2*i])==-1){ // initialize pipe
+        if(pipe(&pipes[2*i])==-1){ // initialize pipe
             fprintf(stderr, "Pipe Failed");
             return 1;
         }
-        if((pid = fork()) == -1){
+        pid = fork();
+        if(pid == -1){
             printf(stderr, "Fork Failed");
             exit(1);
         } else if (pid == 0){
-            close(fd1[2*i]); // close pipe for reading
+            close(pipes[2*i]); // close pipe for reading
 
-            char names[ROWS][COLS];
-            int nameCount[ROWS];
 
-            printf("Child argv[%d] - Filename:%s\n", i+1, argv[i+1]);
+            printf("CHILD(%d) argv[%d] - Filename:%s\n", i+1, i+1, argv[i+1]);
             int nameIndex = loadNames(names, nameCount, argv[i+1]);
 
             for(int j=0; j<nameIndex; j++){
                 printf("CHILD(%d) - %s %d\n", i+1, names[j], nameCount[j]);
             }
 
-            write(fd1[2*i+1], names, sizeof(names));
-            write(fd1[2*i+1], nameCount, sizeof(nameCount));
-            write(fd1[2*i+1], &nameIndex, sizeof(nameIndex));
-            close(fd1[2*i+1]);
+            write(pipes[2*i+1], names, sizeof(names));
+            write(pipes[2*i+1], nameCount, sizeof(nameCount));
+            write(pipes[2*i+1], &nameIndex, sizeof(nameIndex));
+            close(pipes[2*i+1]);
             exit(0);
+        } else { // parent
+            pidArr[i] = pid; // sets the relation between pipe index and child process
         }
     }
 
     // parent reading loop
     for(int i=0; i<argc-1; i++){
-        wait(NULL); // block until child returns
+        int finishedPID = wait(NULL); // block until child returns
 
-        char names[ROWS][COLS];
-        int nameCount[ROWS];
+        // Find which child returned
+        int pipeOffset; // get the offset for the pipe array
+        for(int j=0; j<argc-1; j++){
+            if(pidArr[j] == finishedPID){
+                pipeOffset = j;
+            }
+        }
 
         int nameIndex;
-        close(fd1[2*i+1]); // close pipe for writing
-        read(fd1[2*i], names, sizeof(names));
-        read(fd1[2*i], nameCount, sizeof(nameCount));
-        read(fd1[2*i], &nameIndex, sizeof(nameIndex));
-        close(fd1[2*i]);
-        printf("Printing(%d)\n", i);
-        /*for(int j=0; j<nameIndex; j++){
-            printf("%s\n", names[i]);
-        }*/
+        close(pipes[2*pipeOffset+1]); // close pipe for writing
+        read(pipes[2*pipeOffset], names, sizeof(names));
+        read(pipes[2*pipeOffset], nameCount, sizeof(nameCount));
+        read(pipes[2*pipeOffset], &nameIndex, sizeof(nameIndex));
+        close(pipes[2*pipeOffset]);
+        printf("Printing(%d)\n", pipeOffset+1);
+
 
         printNameCount(names, nameCount, nameIndex); // print out the count of names
     }
