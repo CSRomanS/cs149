@@ -30,12 +30,15 @@ int main(int argc, char *argv[]){
         return 1;
     }
 
+    char* fileCursor = &argv[1];
+
     pid_t pid = fork();
     if(pid < 0){fprintf(stderr, "Fork Failed"); return 1;}
+
     if(pid == 0) { // child
         close(fd1[0]); // close pipe for reading
 
-        int nameIndex = loadNames(names, nameCount, argv[1]);
+        int nameIndex = loadNames(names, nameCount, fileCursor);
         //printNameCount(names, nameCount, nameIndex); // print out the count of names
 
         write(fd1[1], names, sizeof(names));
