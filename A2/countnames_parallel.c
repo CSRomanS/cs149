@@ -21,19 +21,43 @@ void printNameCount(char list[ROWS][COLS], int arrCount[ROWS], int maxNames);
 int loadNames(char nameTable[ROWS][COLS], int nameCount[COLS], char fileName[]);
 
 int main(int argc, char *argv[]){
-    int fd1[2];
-    if(pipe(fd1)==-1){
-        fprint(stderr, "Pipe Failed");
-        return 1;
-    }
-
-
     char names[ROWS][COLS];
     int nameCount[ROWS];
 
-    //int nameIndex = loadNames(names, nameCount, argv[1]);
+    int fd1[2];
+    if(pipe(fd1)==-1){
+        fprintf(stderr, "Pipe Failed");
+        return 1;
+    }
 
-    //printNameCount(names, nameCount, nameIndex); // print out the count of names
+    pid_t pid = fork();
+    if(pid < 0){fprintf(stderr, "Fork Failed"); return 1;}
+    if(pid == 0) { // child
+        close(fd1[0]); // close pipe for reading
+
+        int nameIndex = loadNames(names, nameCount, argv[1]);
+        //printNameCount(names, nameCount, nameIndex); // print out the count of names
+
+        write(fd1[1], names, sizeof(names));
+        write(fd1[1], nameCount, sizeof(nameCount));
+        write(fd1[1], &nameIndex, sizeof(nameIndex));
+        close(fd1[1]);
+    } else {
+        int nameIndex;
+        close(fd1[1]); // close pipe for writing
+        read(fd1[0], names, sizeof(names));
+        read(fd1[0], nameCount, sizeof(nameCount));
+        read(fd1[0], &nameIndex, sizeof(nameIndex));
+        close(fd1[0]);
+        printNameCount(names, nameCount, nameIndex); // print out the count of names
+
+    }
+
+
+
+
+
+
 
     return 0;
 }
