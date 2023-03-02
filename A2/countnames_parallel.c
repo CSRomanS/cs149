@@ -64,13 +64,13 @@ int main(int argc, char *argv[]){
     int totalNameCount = 0; // keeps a tally of all the names in the parent process
     // parent reading loop
     for(int i=0; i<argc-1; i++){
-        int finishedPID = wait(NULL); // block until child returns
+        int finishedPID = wait(NULL); // block until a child returns
 
         // Find which child returned
         int pipeOffset; // get the offset for the pipe array
         for(int j=0; j<argc-1; j++){
             if(pidArr[j] == finishedPID){
-                pipeOffset = j;
+                pipeOffset = j; // set the offset to the matched index
             }
         }
         char currentNames[ROWS][COLS];
@@ -82,22 +82,21 @@ int main(int argc, char *argv[]){
         read(pipes[2*pipeOffset], currentNameCount, sizeof(currentNameCount));
         read(pipes[2*pipeOffset], &nameIndex, sizeof(nameIndex));
         close(pipes[2*pipeOffset]);
-        printf("Printing(%d)\n", pipeOffset+1);
+        //printf("Printing(%d)\n", pipeOffset+1);
 
         // adding up the names to the master namelist
         for(int j=0; j<nameIndex; j++){
             int index = inList(names, currentNames[j], totalNameCount); // get index of the name in the master name array
-            if(index){
-                nameCount[index] += currentNameCount[j]; // add up the count
-            } else{
+            if(index<0){
                 strcpy(names[totalNameCount], currentNames[j]); // copy a new name into the master name array
                 nameCount[totalNameCount] = currentNameCount[j]; // initialize to the returned count
                 totalNameCount++;
+            } else {
+                nameCount[index] += currentNameCount[j]; // add up the count
             }
         }
-        printNameCount(names, nameCount, totalNameCount); // print out the count of names
     }
-
+    printNameCount(names, nameCount, totalNameCount); // print out the count of names
     /*
     int argCount = 1; // keeps track of which file to open and read
 
@@ -155,7 +154,7 @@ int loadNames(char nameTable[ROWS][COLS], int nameCount[COLS], char fileName[]){
 
         // filters empty lines
         if (strlen(nameCursor) == 0){
-            fprintf(stderr, "Warning - Line %d is empty.\n", lineCount);
+            fprintf(stderr, "Warning - file %s line %d is empty.\n", fileName, lineCount);
             continue;
         }
 
