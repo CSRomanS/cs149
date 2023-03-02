@@ -41,10 +41,9 @@ int main(int argc, char *argv[]){
             printf(stderr, "Fork Failed");
             exit(1);
         } else if (pid == 0){
+            printf("CHILD(%d) argv[%d] - Filename:%s\n", i+1, i+1, argv[i+1]);
             close(pipes[2*i]); // close pipe for reading
 
-
-            printf("CHILD(%d) argv[%d] - Filename:%s\n", i+1, i+1, argv[i+1]);
             int nameIndex = loadNames(names, nameCount, argv[i+1]);
 
             for(int j=0; j<nameIndex; j++){
@@ -58,6 +57,7 @@ int main(int argc, char *argv[]){
             exit(0);
         } else { // parent
             pidArr[i] = pid; // sets the relation between pipe index and child process
+            close(pipes[2*i+1]); // closes parent writing end
         }
     }
 
@@ -66,7 +66,7 @@ int main(int argc, char *argv[]){
     for(int i=0; i<argc-1; i++){
         int finishedPID = wait(NULL); // block until a child returns
 
-        // Find which child returned
+        // Find the returned child's pipe
         int pipeOffset; // get the offset for the pipe array
         for(int j=0; j<argc-1; j++){
             if(pidArr[j] == finishedPID){
@@ -77,7 +77,7 @@ int main(int argc, char *argv[]){
         int currentNameCount[ROWS];
 
         int nameIndex;
-        close(pipes[2*pipeOffset+1]); // close pipe for writing
+        //close(pipes[2*pipeOffset+1]); // close pipe for writing
         read(pipes[2*pipeOffset], currentNames, sizeof(currentNames));
         read(pipes[2*pipeOffset], currentNameCount, sizeof(currentNameCount));
         read(pipes[2*pipeOffset], &nameIndex, sizeof(nameIndex));
