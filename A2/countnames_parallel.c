@@ -21,24 +21,79 @@ void printNameCount(char list[ROWS][COLS], int arrCount[ROWS], int maxNames);
 int loadNames(char nameTable[ROWS][COLS], int nameCount[COLS], char fileName[]);
 
 int main(int argc, char *argv[]){
-    char names[ROWS][COLS];
-    int nameCount[ROWS];
 
-    int fd1[2];
-    if(pipe(fd1)==-1){
+
+    //printf("%d\n", argc);
+
+    int fd1[2*argc]; // holds the pipes
+
+    // pipe creation
+    /*if(pipe(fd1)==-1){
         fprintf(stderr, "Pipe Failed");
         return 1;
+    }*/
+
+    // fork spawning loop
+    pid_t pid;
+    for(int i=0; i<argc-1; i++){
+        if(pipe(&fd1[2*i])==-1){ // initialize pipe
+            fprintf(stderr, "Pipe Failed");
+            return 1;
+        }
+        if((pid = fork()) == -1){
+            printf(stderr, "Fork Failed");
+            exit(1);
+        } else if (pid == 0){
+            close(fd1[2*i]); // close pipe for reading
+
+            char names[ROWS][COLS];
+            int nameCount[ROWS];
+
+            printf("Child argv[%d] - Filename:%s\n", i+1, argv[i+1]);
+            int nameIndex = loadNames(names, nameCount, argv[i+1]);
+
+            for(int j=0; j<nameIndex; j++){
+                printf("CHILD(%d) - %s %d\n", i+1, names[j], nameCount[j]);
+            }
+
+            write(fd1[2*i+1], names, sizeof(names));
+            write(fd1[2*i+1], nameCount, sizeof(nameCount));
+            write(fd1[2*i+1], &nameIndex, sizeof(nameIndex));
+            close(fd1[2*i+1]);
+            exit(0);
+        }
     }
 
-    char* fileCursor = &argv[1];
+    // parent reading loop
+    for(int i=0; i<argc-1; i++){
+        wait(NULL); // block until child returns
 
-    pid_t pid = fork();
+        char names[ROWS][COLS];
+        int nameCount[ROWS];
+
+        int nameIndex;
+        close(fd1[2*i+1]); // close pipe for writing
+        read(fd1[2*i], names, sizeof(names));
+        read(fd1[2*i], nameCount, sizeof(nameCount));
+        read(fd1[2*i], &nameIndex, sizeof(nameIndex));
+        close(fd1[2*i]);
+        printf("Printing(%d)\n", i);
+        /*for(int j=0; j<nameIndex; j++){
+            printf("%s\n", names[i]);
+        }*/
+
+        printNameCount(names, nameCount, nameIndex); // print out the count of names
+    }
+
+    /*
+    int argCount = 1; // keeps track of which file to open and read
+
     if(pid < 0){fprintf(stderr, "Fork Failed"); return 1;}
 
     if(pid == 0) { // child
         close(fd1[0]); // close pipe for reading
 
-        int nameIndex = loadNames(names, nameCount, fileCursor);
+        int nameIndex = loadNames(names, nameCount, argv[argCount]);
         //printNameCount(names, nameCount, nameIndex); // print out the count of names
 
         write(fd1[1], names, sizeof(names));
@@ -54,12 +109,7 @@ int main(int argc, char *argv[]){
         close(fd1[0]);
         printNameCount(names, nameCount, nameIndex); // print out the count of names
 
-    }
-
-
-
-
-
+    }*/
 
 
     return 0;
