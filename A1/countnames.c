@@ -10,8 +10,8 @@
 #include <stdlib.h>
 #include <string.h>
 
-const int ROWS = 100; // number of names in the array
-const int COLS = 30; // max length of names
+#define ROWS 100 // number of names in the array
+#define COLS 31 // max length of names
 
 int inList(char list[ROWS][COLS], char name[COLS], int maxNames);
 void printNameCount(char list[ROWS][COLS], int arrCount[ROWS], int maxNames);
@@ -70,11 +70,8 @@ int main(int argc, char *argv[]){
  */
 int inList(char list[ROWS][COLS], char name[COLS], int maxNames){
     for(int i=0; i<maxNames; i++){ // go through names
-        for(int j=0; j<COLS; j++) { // go through specific name
-            if (list[i][j] != name[j]) {
-                break; // goes on to next name
-            }
-            return i; // return the index found
+        if(strcmp(list[i], name) == 0){
+            return i;
         }
     }
     return -1; // no match found
