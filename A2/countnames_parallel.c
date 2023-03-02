@@ -41,14 +41,14 @@ int main(int argc, char *argv[]){
             printf(stderr, "Fork Failed");
             exit(1);
         } else if (pid == 0){
-            printf("CHILD(%d) argv[%d] - Filename:%s\n", i+1, i+1, argv[i+1]);
+            //printf("CHILD(%d) argv[%d] - Filename:%s\n", i+1, i+1, argv[i+1]);
             close(pipes[2*i]); // close pipe for reading
 
             int nameIndex = loadNames(names, nameCount, argv[i+1]);
 
-            for(int j=0; j<nameIndex; j++){
+            /*for(int j=0; j<nameIndex; j++){
                 printf("CHILD(%d) - %s %d\n", i+1, names[j], nameCount[j]);
-            }
+            }*/
 
             write(pipes[2*i+1], names, sizeof(names));
             write(pipes[2*i+1], nameCount, sizeof(nameCount));
