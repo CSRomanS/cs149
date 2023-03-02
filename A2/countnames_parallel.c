@@ -61,6 +61,7 @@ int main(int argc, char *argv[]){
         }
     }
 
+    int totalNameCount = 0; // keeps a tally of all the names in the parent process
     // parent reading loop
     for(int i=0; i<argc-1; i++){
         int finishedPID = wait(NULL); // block until child returns
@@ -72,17 +73,29 @@ int main(int argc, char *argv[]){
                 pipeOffset = j;
             }
         }
+        char currentNames[ROWS][COLS];
+        int currentNameCount[ROWS];
 
         int nameIndex;
         close(pipes[2*pipeOffset+1]); // close pipe for writing
-        read(pipes[2*pipeOffset], names, sizeof(names));
-        read(pipes[2*pipeOffset], nameCount, sizeof(nameCount));
+        read(pipes[2*pipeOffset], currentNames, sizeof(currentNames));
+        read(pipes[2*pipeOffset], currentNameCount, sizeof(currentNameCount));
         read(pipes[2*pipeOffset], &nameIndex, sizeof(nameIndex));
         close(pipes[2*pipeOffset]);
         printf("Printing(%d)\n", pipeOffset+1);
 
-
-        printNameCount(names, nameCount, nameIndex); // print out the count of names
+        // adding up the names to the master namelist
+        for(int j=0; j<nameIndex; j++){
+            int index = inList(names, currentNames[j], totalNameCount); // get index of the name in the master name array
+            if(index){
+                nameCount[index] += currentNameCount[j]; // add up the count
+            } else{
+                strcpy(names[totalNameCount], currentNames[j]); // copy a new name into the master name array
+                nameCount[totalNameCount] = currentNameCount[j]; // initialize to the returned count
+                totalNameCount++;
+            }
+        }
+        printNameCount(names, nameCount, totalNameCount); // print out the count of names
     }
 
     /*
@@ -114,6 +127,7 @@ int main(int argc, char *argv[]){
 
     return 0;
 }
+
 
 /**
  * Loads names into a passed array
