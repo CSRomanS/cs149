@@ -1,9 +1,9 @@
 /**
  * Description: This file counts the number of names in a number of given text file
- *              Uses a seperate process for each file entered, results are piped to the parent
+ *              Uses a separate process for each file entered, results are piped to the parent
  * Author Name: Roman Shpilberg
  * Author Emails: roman.shpilberg@sjsu.edu
- * Last Modified Date: 3/2/2023
+ * Last Modified Date: 3/4/2023
  * Creation Date: 3/1/2023
  */
 
@@ -16,15 +16,16 @@
 #define ROWS 100 // number of names in the array
 #define COLS 31 // max length of names
 
-int inList(char list[ROWS][COLS], char name[COLS], int maxNames);
-void printNameCount(char list[ROWS][COLS], int arrCount[ROWS], int maxNames);
-int loadNames(char nameTable[ROWS][COLS], int nameCount[COLS], char fileName[]);
+int inList(char list[ROWS][COLS], char name[COLS], int maxNames); // checks array membership
+void printNameCount(char list[ROWS][COLS], int arrCount[ROWS], int maxNames); // print the names and count
+int loadNames(char nameTable[ROWS][COLS], int nameCount[COLS], char fileName[]); // load up name count from file
 
 int main(int argc, char *argv[]){
+    // holds the names and count of the given names
+    // parent uses it for the total count, children use it for file counts
     char names[ROWS][COLS];
     int nameCount[ROWS];
 
-    //printf("%d\n", argc);
 
     int pipes[2*(argc-1)]; // holds the pipes
     int pidArr[argc-1]; // pid to pipe correlation
@@ -37,23 +38,22 @@ int main(int argc, char *argv[]){
             return 1;
         }
         pid = fork();
+
         if(pid == -1){
             printf(stderr, "Fork Failed");
             exit(1);
         } else if (pid == 0){
-            //printf("CHILD(%d) argv[%d] - Filename:%s\n", i+1, i+1, argv[i+1]);
+            // printf("Spawned CHILD(%d) argv[%d] - Filename:%s\n", getpid(), i+1, argv[i+1]);
             close(pipes[2*i]); // close pipe for reading
 
-            int nameIndex = loadNames(names, nameCount, argv[i+1]);
+            int nameIndex = loadNames(names, nameCount, argv[i+1]); // load names from the given file
 
-            /*for(int j=0; j<nameIndex; j++){
-                printf("CHILD(%d) - %s %d\n", i+1, names[j], nameCount[j]);
-            }*/
-
+            // write the list of names, the count of names, and the number of names read to the pipe
             write(pipes[2*i+1], names, sizeof(names));
             write(pipes[2*i+1], nameCount, sizeof(nameCount));
             write(pipes[2*i+1], &nameIndex, sizeof(nameIndex));
             close(pipes[2*i+1]);
+            // printf("Returning from CHILD(%d)\n", getpid());
             exit(0);
         } else { // parent
             pidArr[i] = pid; // sets the relation between pipe index and child process
@@ -62,22 +62,25 @@ int main(int argc, char *argv[]){
     }
 
     int totalNameCount = 0; // keeps a tally of all the names in the parent process
+
     // parent reading loop
     for(int i=0; i<argc-1; i++){
         int finishedPID = wait(NULL); // block until a child returns
 
         // Find the returned child's pipe
-        int pipeOffset; // get the offset for the pipe array
-        for(int j=0; j<argc-1; j++){
+        int pipeOffset; // offset for the pipe array
+        for(int j=0; j<argc-1; j++){ // iterate through the pid array to find the offset for the pipe array
             if(pidArr[j] == finishedPID){
                 pipeOffset = j; // set the offset to the matched index
             }
         }
+        // printf("Reading from CHILD(%d), Offset:(%d)\n", finishedPID, pipeOffset);
+        // temp arrays for reading in counts from child processes
         char currentNames[ROWS][COLS];
         int currentNameCount[ROWS];
+        int nameIndex; // holds the max count of names read
 
-        int nameIndex;
-        //close(pipes[2*pipeOffset+1]); // close pipe for writing
+        // read the returned data from the pipe
         read(pipes[2*pipeOffset], currentNames, sizeof(currentNames));
         read(pipes[2*pipeOffset], currentNameCount, sizeof(currentNameCount));
         read(pipes[2*pipeOffset], &nameIndex, sizeof(nameIndex));
@@ -97,33 +100,6 @@ int main(int argc, char *argv[]){
         }
     }
     printNameCount(names, nameCount, totalNameCount); // print out the count of names
-    /*
-    int argCount = 1; // keeps track of which file to open and read
-
-    if(pid < 0){fprintf(stderr, "Fork Failed"); return 1;}
-
-    if(pid == 0) { // child
-        close(fd1[0]); // close pipe for reading
-
-        int nameIndex = loadNames(names, nameCount, argv[argCount]);
-        //printNameCount(names, nameCount, nameIndex); // print out the count of names
-
-        write(fd1[1], names, sizeof(names));
-        write(fd1[1], nameCount, sizeof(nameCount));
-        write(fd1[1], &nameIndex, sizeof(nameIndex));
-        close(fd1[1]);
-    } else {
-        int nameIndex;
-        close(fd1[1]); // close pipe for writing
-        read(fd1[0], names, sizeof(names));
-        read(fd1[0], nameCount, sizeof(nameCount));
-        read(fd1[0], &nameIndex, sizeof(nameIndex));
-        close(fd1[0]);
-        printNameCount(names, nameCount, nameIndex); // print out the count of names
-
-    }*/
-
-
     return 0;
 }
 
@@ -158,17 +134,14 @@ int loadNames(char nameTable[ROWS][COLS], int nameCount[COLS], char fileName[]){
             continue;
         }
 
-        //printf(nameCursor);
         int index = inList(nameTable, nameCursor, nameIndex);
         if(index<0){ // if no name found, add on name
-            //printf("No name Found, Adding: %s\n", nameCursor);
             for(int i=0;i<COLS;i++){
                 nameTable[nameIndex][i] = nameCursor[i]; // copy a letter
-
             }
             nameCount[nameIndex] = 1;
             nameIndex++;
-        } else{
+        } else{ // if name found, just increment the count
             nameCount[index] += 1; // increments the count of the found name
         }
     }
@@ -177,7 +150,7 @@ int loadNames(char nameTable[ROWS][COLS], int nameCount[COLS], char fileName[]){
 
 /**
  * Finds if a name exists in the list
- * @param list pointer to a 2d char array of names
+ * @param list reference to a 2d char array of names
  * @param name char[] of name to find
  * @param maxNames the number of names loaded in the list
  * @return >0 if no name matched, the line that matched otherwise
