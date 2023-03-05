@@ -21,12 +21,6 @@ void printNameCount(char list[ROWS][COLS], int arrCount[ROWS], int maxNames); //
 int loadNames(char nameTable[ROWS][COLS], int nameCount[COLS], char fileName[]); // load up name count from file
 
 int main(int argc, char *argv[]){
-    // holds the names and count of the given names
-    // parent uses it for the total count, children use it for file counts
-    char names[ROWS][COLS];
-    int nameCount[ROWS];
-
-
     int pipes[2*(argc-1)]; // holds the pipes
     int pidArr[argc-1]; // pid to pipe correlation
 
@@ -46,6 +40,10 @@ int main(int argc, char *argv[]){
             // printf("Spawned CHILD(%d) argv[%d] - Filename:%s\n", getpid(), i+1, argv[i+1]);
             close(pipes[2*i]); // close pipe for reading
 
+            // child's arrays for counting names
+            char names[ROWS][COLS];
+            int nameCount[ROWS];
+
             int nameIndex = loadNames(names, nameCount, argv[i+1]); // load names from the given file
 
             // write the list of names, the count of names, and the number of names read to the pipe
@@ -62,6 +60,10 @@ int main(int argc, char *argv[]){
     }
 
     int totalNameCount = 0; // keeps a tally of all the names in the parent process
+
+    // parent's  array for adding up the count from each child
+    char names[ROWS*(argc-1)][COLS]; // size of: 100 * NumberOfFiles
+    int nameCount[ROWS];
 
     // parent reading loop
     for(int i=0; i<argc-1; i++){
@@ -136,9 +138,7 @@ int loadNames(char nameTable[ROWS][COLS], int nameCount[COLS], char fileName[]){
 
         int index = inList(nameTable, nameCursor, nameIndex);
         if(index<0){ // if no name found, add on name
-            for(int i=0;i<COLS;i++){
-                nameTable[nameIndex][i] = nameCursor[i]; // copy a letter
-            }
+            strcpy(nameTable[nameIndex], nameCursor); // copies the name into the parent array
             nameCount[nameIndex] = 1;
             nameIndex++;
         } else{ // if name found, just increment the count
