@@ -34,7 +34,7 @@ int main(int argc, char *argv[]){
         pid = fork();
 
         if(pid == -1){
-            printf(stderr, "Fork Failed");
+            fprintf(stderr, "Fork Failed");
             exit(1);
         } else if (pid == 0){
             // printf("Spawned CHILD(%d) argv[%d] - Filename:%s\n", getpid(), i+1, argv[i+1]);
