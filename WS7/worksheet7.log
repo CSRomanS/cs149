@@ -1,0 +1,41 @@
+    1  make all
+    2  sudo make all
+    3  make all
+    4  sudo apt-get install make
+    5  make all
+    6  gcc  -ansi  -I../include   -DLINUX  -D_GNU_SOURCE  -Wall   -o test1 test1.c  -L../lib -lapue
+    7  make test1
+    8  make all
+    9  make test1
+   10  make all
+   11  makeall
+   12  make all
+   13  sudo make all
+   14  wget http://www.apuebook.com/src.3e.tar.gz
+   15  gunzip src.3e.tar.gz
+   16  tar xvf src.3e.tar
+   17  cd apue.3e
+   18  cd proc
+   19  make all
+   20  ./test1
+   21  make all
+   22  ./test1
+   23  make all
+   24  ./test1
+   25  make all
+   26  ./test1
+   27  proc_manager
+   28  ./proc_Manager
+   29  ./proc_manager
+   30  cd ~/Desktop/
+   31  mkdir ws7
+   32  cd ws7
+   33  ls | wc
+   34  ls | sort
+   35  ls | sort | wc
+   36  ls -latr /bin/ > a.out
+   37  cat a.out | more
+   38  strace ls
+   39  du -sh .
+   40  df -i
+   41  history > worksheet7.log

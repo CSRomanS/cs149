@@ -4,6 +4,7 @@
 #include <unistd.h>
 #include <sys/wait.h>
 #include <fcntl.h>
+#include <signal.h>
 
 /**
  * Description: This file accepts arguments that are executed in parallel
@@ -17,33 +18,24 @@
 #define ROWS 100 // number of commands in the array
 #define COLS 31 // max length of commands
 #define FILENAME_LENGTH 15
-#define ARG_LENGTH 15
 
 int splitCommands(char argArray[COLS][COLS], char inString[COLS]);
 
 int main(int argc, char *argv[]) {
     char line[COLS]; // cursor for the input from stdin
-    int commandIndex = 0; //  keeps track of the number of commands entered
+    int commandIndex = 1; //  keeps track of the number of commands entered
     pid_t pid; // holds the pid for the while loop
 
     // reads the input commands and creates child processes
     while(fgets(&line, COLS, stdin) != NULL){
         if (line[strlen(line) - 1] == '\n') line[strlen(line) - 1] = '\0'; // replace newline
 
-        /*
-        printf("%s\n", line);
-        char commandArray[COLS][COLS];
-        int cmds = splitCommands(commandArray, line);
-        for(int i=0; i<cmds;i++){
-            printf("%s\n", commandArray[i]);
-        }
-        */
-
         pid = fork();
         if(pid == -1){
-            printf(stderr, "Fork Failed");
+            fprintf(stderr, "Fork Failed");
             exit(1);
         } else if (pid == 0){ // child
+
             // redirects stdout and stderr
             char fileName[FILENAME_LENGTH]; // holder for the filename of .out and .err
             snprintf(fileName, FILENAME_LENGTH, "%d.out", getpid()); // create the output file
@@ -56,7 +48,7 @@ int main(int argc, char *argv[]) {
             close(fdErr);
 
             fprintf(stdout,"Starting command %d: child %d pid of parent %d\n", commandIndex, getpid(), getppid());
-
+            fflush(stdout);
             // Splits the line for execvp
             char commandArray[COLS][COLS]; // holds the split commands
             char* test[COLS]; // array of pointers for execvp
@@ -69,20 +61,42 @@ int main(int argc, char *argv[]) {
             test[cmds]=NULL; // null terminator for execvp
 
 
-            //fprintf(stdout, "argArray:%s\n", commandArray[1]);
-
             execvp(test[0], test); // executes the command
-            //printf("Shouldn't be here...");
+            fprintf(stderr, "Failed to execute: %s", line);
             exit(2); // exits with exit code 2 if execvp fails
         }
+        fflush(stdout);
         commandIndex++; // increment the number of processes created
     }
-    while(wait(NULL) != -1){
-        continue;
+
+    int status; // holder for the status of children processes
+    pid_t wpid; // returned child pid holder
+    while((wpid = wait(&status)) > 0){ // wait for all children to finish
+        char fileName[FILENAME_LENGTH]; // holder for the filename of .out and .err
+        snprintf(fileName, FILENAME_LENGTH, "%d.out", wpid); // create the output file name
+        FILE* childOut = fopen(fileName, "a");
+        fprintf(childOut, "Finished child %d pid of parent %d", wpid, getpid());
+        fclose(childOut);
+
+        // parent printing to files
+        snprintf(fileName, FILENAME_LENGTH, "%d.err", wpid); // create the error file name
+        FILE* childErr = fopen(fileName, "a");
+        if(WIFSIGNALED(status)){
+            fprintf(childErr, "Killed with signal %d", WTERMSIG(status)); // prints if the child was killed by signal
+        } else {
+            fprintf(childErr, "Exited with exitcode = %d", status); // prints the exitcode of the finished child
+        }
+        fclose(childErr);
     }
     return 0;
 }
 
+/**
+ * Splits a line by spaces
+ * @param argArray The array to load commands into
+ * @param inString The string to split
+ * @return the number of args loaded into the array
+ */
 int splitCommands(char argArray[COLS][COLS], char inString[COLS]){
     int argIndex = 0; // stores the index for a command
     int charIndex = 0; // stores the index for the argArray
