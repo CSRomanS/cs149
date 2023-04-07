@@ -2,7 +2,7 @@
  * Description:
  * Author Name: Roman Shpilberg
  * Author Emails: roman.shpilberg@sjsu.edu
- * Last Modified Date: 4/4/2023
+ * Last Modified Date: 4/7/2023
  * Creation Date: 4/4/2023
  */
 
@@ -11,6 +11,13 @@
 #include <string.h>
 #include <stdarg.h>
 
+struct COMMAND_NODE_STRUCT{
+    char* command; // pointer to a command string
+    int lineIndex; // the index of the command
+    struct COMMAND_NODE* next;
+};
+typedef struct COMMAND_NODE_STRUCT COMMAND_NODE;
+static COMMAND_NODE* COMMAND_TOP = NULL;
 
 /**
     TRACE_NODE_STRUCT is a linked list of
@@ -25,6 +32,40 @@ struct TRACE_NODE_STRUCT {
 typedef struct TRACE_NODE_STRUCT TRACE_NODE;
 static TRACE_NODE* TRACE_TOP = NULL;       // ptr to the top of the stack
 
+#define START_ROWS 10
+#define CURSOR_SIZE 200
+
+void addCommand(char* inCommand, int inIndex){
+    COMMAND_NODE* tempNode = (COMMAND_NODE*) malloc(sizeof(COMMAND_NODE));
+    tempNode->command = inCommand;
+    tempNode->lineIndex = inIndex;
+    if(COMMAND_TOP == NULL){
+        tempNode->next = NULL;
+    } else {
+        tempNode->next = COMMAND_TOP;
+    }
+    COMMAND_TOP = tempNode;
+}
+
+void printCommands(){
+    COMMAND_NODE* tempNode = COMMAND_TOP; // start at the top
+    while(tempNode->next != NULL){
+        printf("%s->",tempNode->command);
+        tempNode = tempNode->next; // go to the next node
+    }
+    printf("%s->",tempNode->command); // print the final node
+}
+
+void freeCommandList(){
+    COMMAND_NODE* tempNode = COMMAND_TOP; // start at the top
+    COMMAND_NODE* tempNode2; // stores the next command node while freeing the tempNode
+    while(tempNode->next != NULL){
+        tempNode2 = tempNode->next;
+        free(tempNode);
+        tempNode = tempNode2; // go to the next node
+    }
+    free(tempNode); // frees the final command node
+}
 
 /* --------------------------------*/
 /* function PUSH_TRACE */
@@ -170,12 +211,7 @@ void FREE(void* p,char* file,int line)
 #define free(a) FREE(a,__FILE__,__LINE__)
 
 
-// -----------------------------------------
-// function add_column will add an extra column to a 2d array of ints.
-// This function is intended to demonstrate how memory usage tracing of realloc is done
-// Returns the number of new columns (updated)
-int add_column(int** array,int rows,int columns)
-{
+int addRows(char** array,int rows,int columns){
     PUSH_TRACE("add_column");
     int i;
 
@@ -188,22 +224,17 @@ int add_column(int** array,int rows,int columns)
 }// end add_column
 
 
-// ------------------------------------------
-// function make_extend_array
-// Example of how the memory trace is done
-// This function is intended to demonstrate how memory usage tracing of malloc and free is done
-void make_extend_array()
-{
+/*
+void makeCommandArray(){
     PUSH_TRACE("make_extend_array");
-    int i, j;
-    int **array;
+    char **commands;
     int ROW = 4;
     int COL = 3;
 
     //make array
-    array = (int**) malloc(sizeof(int*)*4);  // 4 rows
-    for(i=0; i<ROW; i++) {
-        array[i]=(int*) malloc(sizeof(int)*3);  // 3 columns
+    commands = (char**) malloc(sizeof(char*)*START_ROWS);  // 4 rows
+    for(int i=0; i<START_ROWS; i++) {
+        commands[i]=(char*) malloc(sizeof(char)*3);  // 3 columns
         for(j=0; j<COL; j++)
             array[i][j]=10*i+j;
     }//for
@@ -229,16 +260,59 @@ void make_extend_array()
     POP_TRACE();
     return;
 }//end make_extend_array
-
+*/
 
 // ----------------------------------------------
 // function main
+
+void freeArray(char** commands, int commandLimit){
+    for(int i=0; i<commandLimit; i++){
+        free((void*) commands[i]); // frees each command line
+    }
+    free((void*) commands); //frees the command array
+}
+
+void printArray(char** commands, int numCommands){
+    for(int i=0; i<numCommands; i++){
+        printf("%s\n", commands[i]);
+    }
+}
+
 int main()
 {
     PUSH_TRACE("main");
+    char inCursor[CURSOR_SIZE] = {0}; // temporarily stores the input until the proper amount of memory is allocated
+    char **commands;
+    int commandCount = 0;
+    int commandLimit = START_ROWS;
 
-    make_extend_array();
+    commands = (char**) malloc(sizeof(char*)* START_ROWS); // allocates an initial amount of command storage
 
+    // Load up the commands from stdin
+    while(fgets(&inCursor, CURSOR_SIZE, stdin) != NULL){
+        // expands the command array if the current limit has been reached
+        if(commandCount == commandLimit){
+            void* tmp = (char**) realloc(commands,sizeof(char)*(commandLimit+START_ROWS)); // expands the number of command storage space;
+            if (tmp == NULL){ // ends the program if realloc failed
+                freeArray(commands, commandLimit); // frees the dynamically allocated commands array
+                fprintf(stderr, "realloc failed, exiting.");
+                return(1);
+            }
+            else{
+                commands = tmp; // update the commands pointer if realloc was successful
+                commandLimit += START_ROWS; // updates the number of allocated commands
+            }
+        }
+
+        // normal loading of commands
+        commands[commandCount] = (char*) malloc(sizeof(char) * (strlen(inCursor)+1)); // allocates memory for a command
+        strcpy(commands[commandCount], inCursor); // copies the cursor contents to the newly allocated array
+
+        commandCount++;
+
+    }
+    printArray(commands, commandCount);
+    freeArray(commands, commandLimit); // frees the array
     POP_TRACE();
     return(0);
 }// end main
