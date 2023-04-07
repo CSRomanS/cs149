@@ -224,6 +224,7 @@ void freeCommandList(){
 void freeArray(char** commands, int commandLimit){
     PUSH_TRACE("freeArray");
     for(int i=0; i<commandLimit; i++){
+        printf("Freeing[%d]:%p\n", i, commands[i]);
         free((void*) commands[i]); // frees each command line
     }
     free((void*) commands); //frees the command array
@@ -243,6 +244,7 @@ int main()
     char **commands;
     int commandCount = 0;
     int commandLimit = START_ROWS;
+    int longestCommand = 0; // holds the size of the longest command, used for realloc
 
     commands = (char**) malloc(sizeof(char*)* START_ROWS); // allocates an initial amount of command storage
 
@@ -250,9 +252,11 @@ int main()
     while(fgets(&inCursor, CURSOR_SIZE, stdin) != NULL){
         if (inCursor[strlen(inCursor) - 1] == '\n') inCursor[strlen(inCursor) - 1] = '\0'; // replace newline
         if(!strcmp(inCursor, "q")) {break;}
+        if(longestCommand < strlen(inCursor)) longestCommand = strlen(inCursor);
         // expands the command array if the current limit has been reached
         if(commandCount == commandLimit){
-            void* tmp = (char**) realloc(commands,sizeof(char)*(commandLimit+START_ROWS)); // expands the number of command storage space;
+            //void* tmp = (char**) realloc(commands,sizeof(char)*(commandLimit+START_ROWS)); // expands the number of command storage space;
+            void* tmp = (char**) realloc(commands,sizeof(char *) * (commandLimit+START_ROWS) + sizeof(char) * longestCommand * (commandLimit+START_ROWS)); // expands the number of command storage space;
             if (tmp == NULL){ // ends the program if realloc failed
                 freeArray(commands, commandCount); // frees the dynamically allocated commands array
                 fprintf(stderr, "realloc failed, exiting.");
@@ -271,8 +275,9 @@ int main()
         commandCount++;
 
     }
-    printCommands();
-    //freeCommandList(); // frees the linked list
+    //printf("CommandCount:%d\n", commandCount);
+    //printCommands();
+    freeCommandList(); // frees the linked list
     freeArray(commands, commandCount); // frees the array
     POP_TRACE();
     POP_TRACE();
