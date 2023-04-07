@@ -249,13 +249,14 @@ int main()
     // Load up the commands from stdin
     while(fgets(&inCursor, CURSOR_SIZE, stdin) != NULL){
         if (inCursor[strlen(inCursor) - 1] == '\n') inCursor[strlen(inCursor) - 1] = '\0'; // replace newline
+        if(!strcmp(inCursor, "q")) {break;}
         // expands the command array if the current limit has been reached
         if(commandCount == commandLimit){
             void* tmp = (char**) realloc(commands,sizeof(char)*(commandLimit+START_ROWS)); // expands the number of command storage space;
             if (tmp == NULL){ // ends the program if realloc failed
-                freeArray(commands, commandLimit); // frees the dynamically allocated commands array
+                freeArray(commands, commandCount); // frees the dynamically allocated commands array
                 fprintf(stderr, "realloc failed, exiting.");
-                return(1);
+                exit(1);
             }
             else{
                 commands = tmp; // update the commands pointer if realloc was successful
@@ -271,8 +272,9 @@ int main()
 
     }
     printCommands();
+    //freeCommandList(); // frees the linked list
     freeArray(commands, commandCount); // frees the array
-    freeCommandList(); // frees the linked list
+    POP_TRACE();
     POP_TRACE();
     return(0);
 }// end main
