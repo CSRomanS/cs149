@@ -196,14 +196,15 @@ void addCommand(char* inCommand, int inIndex){
     POP_TRACE();
 }
 
-void printCommands(){
+void printCommands(COMMAND_NODE* tempNode){
     PUSH_TRACE("printCommands");
-    COMMAND_NODE* tempNode = COMMAND_TOP; // start at the top
-    while(tempNode->next != NULL){
+    //COMMAND_NODE* tempNode = COMMAND_TOP; // start at the top
+    if(tempNode->next != NULL){ // if the next isn't empty
         printf("%s->",tempNode->command);
-        tempNode = tempNode->next; // go to the next node
+       printCommands(tempNode->next); // go to the next node
+    } else {
+        printf("%s\n",tempNode->command); // print final node
     }
-    printf("%s\n",tempNode->command); // print the final node
     POP_TRACE();
 }
 
@@ -276,7 +277,7 @@ int main()
 
     }
     //printf("CommandCount:%d\n", commandCount);
-    //printCommands();
+    printCommands(COMMAND_TOP); // print out the linked list
     freeCommandList(); // frees the linked list
     freeArray(commands, commandCount); // frees the array
     POP_TRACE();
