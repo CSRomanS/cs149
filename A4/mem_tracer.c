@@ -12,6 +12,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
+#include <fcntl.h>
 
 #define START_ROWS 10
 #define CURSOR_SIZE 200
@@ -207,14 +209,12 @@ void addCommandToList(char* inCommand, int inIndex){
  */
 void printCommands(COMMAND_NODE* tempNode){
     PUSH_TRACE("printCommands");
-    printf("LINKED LIST PRINT:\n");
     if(tempNode->next != NULL){ // if the next isn't empty
         printf("(%d)%s\n",tempNode->lineIndex, tempNode->command); // print the current node
         printCommands((COMMAND_NODE *) tempNode->next); // go to the next node
     } else {
         printf("(%d)%s\n",tempNode->lineIndex, tempNode->command); // print final node
     }
-    printf("END LINKED LIST\n");
     POP_TRACE();
 }
 
@@ -313,12 +313,7 @@ int main(){
     int longestCommand = 0; // holds the size of the longest command, used for realloc
 
     // Output file setup
-    FILE *outputFile = fopen("memtrace.out", "w");
-    // file error
-    if(outputFile == NULL){
-        printf("range: cannot open file\n");
-        exit(1);
-    }
+    int outputFile = open("memtrace.out", O_RDWR | O_CREAT | O_APPEND, 0666);
     dup2(outputFile, 1);
 
     commands = (char**) malloc(sizeof(char*)* START_ROWS); // allocates an initial amount of command storage
@@ -349,6 +344,6 @@ int main(){
     POP_TRACE();
     POP_TRACE();
 
-    fclose(outputFile); // close the output file
+    close(outputFile); // close the output file
     return(0);
 }
