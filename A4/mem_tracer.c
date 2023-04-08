@@ -328,7 +328,7 @@ int main(){
         if (inCursor[strlen(inCursor) - 1] == '\n') inCursor[strlen(inCursor) - 1] = '\0'; // replace newline
         if(!strcmp(inCursor, "q")) {break;} // termination case with an attached debugger, remove later
 
-        // Keep track of longest command entered for realloc
+        // Keep track of the longest command entered for realloc
         if(longestCommand < strlen(inCursor)) longestCommand = strlen(inCursor);
 
         // expands the command array if the current limit has been reached
