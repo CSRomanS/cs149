@@ -47,12 +47,10 @@ struct nlist *lookup(int pid){
 }
 
 
-char* strdup(char* s);
+char* strdupMalloc(char* s);
 
 
 /* insert: put (name, defn) in hashtab */
-/* TODO: change this to insert in hash table the info for a new pid and its command */
-/* TODO: change signature to: struct nlist *insert(char *command, int pid, int index). */
 /* This insert returns a nlist node. Thus when you call insert in your main function  */
 /* you will save the returned nlist node in a variable (mynode). */
 /* Then you can set the starttime and finishtime from your main function: */
@@ -60,10 +58,9 @@ char* strdup(char* s);
 struct nlist *insert(char *command, int pid, int index){
     struct nlist *np;
     unsigned hashval;
-    //TODO change to lookup by pid. There are 2 cases:
     if ((np = lookup(pid)) == NULL) { /* case 1: the pid is not found, so you have to create it with malloc. Then you want to set the pid, command and index */
         np = (struct nlist *) malloc(sizeof(*np));
-        if (np == NULL || (np->command = strdup(command)) == NULL) // sets command and checks for bad malloc
+        if (np == NULL || (np->command = strdupMalloc(command)) == NULL) // sets command and checks for bad malloc
             return NULL;
         np->pid = pid;
         np->index = index;
@@ -75,9 +72,10 @@ struct nlist *insert(char *command, int pid, int index){
     return np;
 }
 
+
 /** You might need to duplicate the command string to ensure you don't overwrite the previous command each time a new line is read from the input file.
 Or you might not need to duplicate it. It depends on your implementation. **/
-char* strdup(char* s) /* make a duplicate of s */
+char* strdupMalloc(char* s) /* make a duplicate of s */
 {
     char *p;
     p = (char *) malloc(strlen(s)+1); /* +1 for ’\0’ */
@@ -89,17 +87,25 @@ char* strdup(char* s) /* make a duplicate of s */
 #define ROWS 100 // number of commands in the array
 #define COLS 31 // max length of commands
 #define FILENAME_LENGTH 15
+#define CURSOR_SIZE 100 // length of cursor for getting input
 
 int splitCommands(char argArray[COLS][COLS], char inString[COLS]);
 
 int main(int argc, char *argv[]) {
-    char line[COLS]; // cursor for the input from stdin
+    char inCursor[CURSOR_SIZE] = {0}; // cursor for the input from stdin
     int commandIndex = 1; //  keeps track of the number of commands entered
     pid_t pid; // holds the pid for the while loop
 
     // reads the input commands and creates child processes
-    while(fgets(&line, COLS, stdin) != NULL){
-        if (line[strlen(line) - 1] == '\n') line[strlen(line) - 1] = '\0'; // replace newline
+    int inputLength = 0; // holder for strlength of the cursor
+    char fileName[FILENAME_LENGTH] = {0}; // holder for the filename of .out and .err
+    while(fgets((char*) &inCursor, CURSOR_SIZE, stdin) != NULL){
+        inputLength = strlen(inCursor);
+        if (inCursor[inputLength - 1] == '\n') inCursor[inputLength - 1] = '\0'; // replace newline
+
+        // Create the hash node structure for the command
+        struct nlist *np = insert(inCursor, getpid(), commandIndex);
+        clock_gettime(CLOCK_MONOTONIC, &np->starttime); // start timer
 
         pid = fork();
         if(pid == -1){
@@ -108,7 +114,6 @@ int main(int argc, char *argv[]) {
         } else if (pid == 0){ // child
 
             // redirects stdout and stderr
-            char fileName[FILENAME_LENGTH]; // holder for the filename of .out and .err
             snprintf(fileName, FILENAME_LENGTH, "%d.out", getpid()); // create the output file
             int fdOut = open(fileName, O_RDWR | O_CREAT | O_APPEND, 0666);
             snprintf(fileName, FILENAME_LENGTH, "%d.err", getpid()); // create the error file
@@ -124,16 +129,15 @@ int main(int argc, char *argv[]) {
             char commandArray[COLS][COLS]; // holds the split commands
             char* test[COLS]; // array of pointers for execvp
 
-            int cmds = splitCommands(commandArray, line);
+            int cmds = splitCommands(commandArray, inCursor);
 
             for(int i=0; i<cmds; i++){
-                test[i] = &commandArray[i];
+                test[i] = (char*) &commandArray[i];
             }
             test[cmds]=NULL; // null terminator for execvp
 
-
             execvp(test[0], test); // executes the command
-            fprintf(stderr, "Failed to execute: %s", line);
+            fprintf(stderr, "Failed to execute: %s", inCursor);
             exit(2); // exits with exit code 2 if execvp fails
         }
         fflush(stdout);
@@ -143,14 +147,18 @@ int main(int argc, char *argv[]) {
     int status; // holder for the status of children processes
     pid_t wpid; // returned child pid holder
     while((wpid = wait(&status)) > 0){ // wait for all children to finish
-        char fileName[FILENAME_LENGTH]; // holder for the filename of .out and .err
-        snprintf(fileName, FILENAME_LENGTH, "%d.out", wpid); // create the output file name
+        struct nlist* reNode = lookup(wpid);
+        clock_gettime(CLOCK_MONOTONIC, &reNode->finishtime); // set finish time
+
+        //char fileName[FILENAME_LENGTH]; // holder for the filename of .out and .err
+        snprintf(fileName, FILENAME_LENGTH, "%d.out", (int)wpid); // create the output file name
         FILE* childOut = fopen(fileName, "a");
-        fprintf(childOut, "Finished child %d pid of parent %d", wpid, getpid());
+        fprintf(childOut, "Finished child %d pid of parent %d\n", (int)wpid, getpid());
+        fprintf(childOut, "Finished at %lld, runtime duration %lld", reNode->finishtime.tv_sec, reNode->finishtime.tv_sec-reNode->starttime.tv_sec);
         fclose(childOut);
 
         // parent printing to files
-        snprintf(fileName, FILENAME_LENGTH, "%d.err", wpid); // create the error file name
+        snprintf(fileName, FILENAME_LENGTH, "%d.err", (int)wpid); // create the error file name
         FILE* childErr = fopen(fileName, "a");
         if(WIFSIGNALED(status)){
             fprintf(childErr, "Killed with signal %d", WTERMSIG(status)); // prints if the child was killed by signal
