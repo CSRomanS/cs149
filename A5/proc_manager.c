@@ -90,7 +90,7 @@ char* strdupMalloc(char* s) /* make a duplicate of s */
 #define CURSOR_SIZE 100 // length of cursor for getting input
 
 int splitCommands(char argArray[COLS][COLS], char inString[COLS]);
-void childRun(char* fileName, char* inCursor, int commandIndex);
+void childRun(char* inCursor, int commandIndex);
 
 
 int main(int argc, char *argv[]) {
@@ -100,7 +100,7 @@ int main(int argc, char *argv[]) {
 
     // reads the input commands and creates child processes
     int inputLength = 0; // holder for strlength of the cursor
-    char fileName[FILENAME_LENGTH] = {0}; // holder for the filename of .out and .err
+
     while(fgets((char*) &inCursor, CURSOR_SIZE, stdin) != NULL) {
         inputLength = strlen(inCursor);
         if (inCursor[inputLength - 1] == '\n') inCursor[inputLength - 1] = '\0'; // replace newline
@@ -115,7 +115,7 @@ int main(int argc, char *argv[]) {
             struct nlist *np = insert(inCursor, pid, commandIndex);
             clock_gettime(CLOCK_MONOTONIC, &np->starttime); // start timer
         }else if (pid == 0){ // child
-            childRun(fileName, inCursor, commandIndex);
+            childRun(inCursor, commandIndex);
         }
         fflush(stdout);
         commandIndex++; // increment the number of processes created
@@ -123,19 +123,21 @@ int main(int argc, char *argv[]) {
 
     int status; // holder for the status of children processes
     pid_t wpid; // returned child pid holder
+    char fileName[FILENAME_LENGTH] = {0}; // holder for the filename of .out and .err
     while((wpid = wait(&status)) > 0){ // wait for all children to finish
         struct nlist* reNode = lookup(wpid);
         if(reNode == NULL) {printf("Didnt find:%d\n", (int)wpid); continue;}
         //printf("ReNode:%s\n", reNode->command);
         clock_gettime(CLOCK_MONOTONIC, &reNode->finishtime); // set finish time
 
-        float runtime = (reNode->finishtime.tv_nsec - reNode->starttime.tv_nsec)/1000000000;
+        //float runtime = (float)((reNode->finishtime.tv_nsec - reNode->starttime.tv_nsec)/1000000000);
+        //printf("Runtime: %f\n", runtime);
 
         //char fileName[FILENAME_LENGTH]; // holder for the filename of .out and .err
         snprintf(fileName, FILENAME_LENGTH, "%d.out", (int)wpid); // create the output file name
         FILE* childOut = fopen(fileName, "a");
         fprintf(childOut, "Finished child %d pid of parent %d\n", (int)wpid, getpid());
-        fprintf(childOut, "Finished at %lld, runtime duration %f\n", reNode->finishtime.tv_sec, runtime);
+        fprintf(childOut, "Finished at %lld, runtime duration %d\n", reNode->finishtime.tv_sec, reNode->finishtime.tv_sec-reNode->starttime.tv_sec);
         fclose(childOut);
 
         // parent printing to files
@@ -148,7 +150,7 @@ int main(int argc, char *argv[]) {
         }
 
         // Restarting logic
-        if(runtime <= 2){
+        if((reNode->finishtime.tv_sec - reNode->starttime.tv_sec) <= 2){
             fprintf(childErr, "spawning too fast\n");
         } else {
             pid = fork();
@@ -157,10 +159,11 @@ int main(int argc, char *argv[]) {
                 exit(1);
             } else if (pid > 0){ // parent
                 // Create the hash node structure for the command
+                printf("Restarting Index: %d", reNode->index);
                 struct nlist *np = insert(reNode->command, pid, reNode->index);
                 clock_gettime(CLOCK_MONOTONIC, &np->starttime); // start timer
             }else if (pid == 0){ // child
-                childRun(fileName, inCursor, commandIndex);
+                childRun(reNode->command, reNode->index);
             }
             // Print restarting
             snprintf(fileName, FILENAME_LENGTH, "%d.out", (int)pid); // create the output file name
@@ -206,7 +209,8 @@ void printHashTable(){
     }
 }
 
-void childRun(char* fileName, char* inCursor, int commandIndex){
+void childRun(char* inCursor, int commandIndex){
+    char fileName[FILENAME_LENGTH] = {0}; // holder for the filename of .out and .err
     // redirects stdout and stderr
     snprintf(fileName, FILENAME_LENGTH, "%d.out", getpid()); // create the output file
     int fdOut = open(fileName, O_RDWR | O_CREAT | O_APPEND, 0666);
