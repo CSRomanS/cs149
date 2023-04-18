@@ -90,6 +90,8 @@ char* strdupMalloc(char* s) /* make a duplicate of s */
 #define CURSOR_SIZE 100 // length of cursor for getting input
 
 int splitCommands(char argArray[COLS][COLS], char inString[COLS]);
+void childRun(char* fileName, char* inCursor, int commandIndex);
+
 
 int main(int argc, char *argv[]) {
     char inCursor[CURSOR_SIZE]; // cursor for the input from stdin
@@ -113,64 +115,61 @@ int main(int argc, char *argv[]) {
             struct nlist *np = insert(inCursor, pid, commandIndex);
             clock_gettime(CLOCK_MONOTONIC, &np->starttime); // start timer
         }else if (pid == 0){ // child
-
-            // redirects stdout and stderr
-            snprintf(fileName, FILENAME_LENGTH, "%d.out", getpid()); // create the output file
-            int fdOut = open(fileName, O_RDWR | O_CREAT | O_APPEND, 0666);
-            snprintf(fileName, FILENAME_LENGTH, "%d.err", getpid()); // create the error file
-            int fdErr = open(fileName, O_RDWR | O_CREAT | O_APPEND, 0666);
-            dup2(fdOut, 1);
-            close(fdOut);
-            dup2(fdErr, 2);
-            close(fdErr);
-
-            fprintf(stdout,"Starting command %d: child %d pid of parent %d\n", commandIndex, getpid(), getppid());
-            fflush(stdout);
-            // Splits the line for execvp
-            char commandArray[COLS][COLS]; // holds the split commands
-            char* test[COLS]; // array of pointers for execvp
-
-            int cmds = splitCommands(commandArray, inCursor);
-
-            for(int i=0; i<cmds; i++){
-                test[i] = (char*) &commandArray[i];
-            }
-            test[cmds]=NULL; // null terminator for execvp
-
-            execvp(test[0], test); // executes the command
-            fprintf(stderr, "Failed to execute: %s", inCursor);
-            exit(2); // exits with exit code 2 if execvp fails
+            childRun(fileName, inCursor, commandIndex);
         }
         fflush(stdout);
         commandIndex++; // increment the number of processes created
     }
 
-
-
     int status; // holder for the status of children processes
     pid_t wpid; // returned child pid holder
     while((wpid = wait(&status)) > 0){ // wait for all children to finish
         struct nlist* reNode = lookup(wpid);
-        if(reNode == NULL) {printf("Didnt find:%d\n", wpid); continue;}
+        if(reNode == NULL) {printf("Didnt find:%d\n", (int)wpid); continue;}
         //printf("ReNode:%s\n", reNode->command);
         clock_gettime(CLOCK_MONOTONIC, &reNode->finishtime); // set finish time
+
+        float runtime = (reNode->finishtime.tv_nsec - reNode->starttime.tv_nsec)/1000000000;
 
         //char fileName[FILENAME_LENGTH]; // holder for the filename of .out and .err
         snprintf(fileName, FILENAME_LENGTH, "%d.out", (int)wpid); // create the output file name
         FILE* childOut = fopen(fileName, "a");
         fprintf(childOut, "Finished child %d pid of parent %d\n", (int)wpid, getpid());
-        fprintf(childOut, "Finished at %lld, runtime duration %lld", reNode->finishtime.tv_sec, reNode->finishtime.tv_sec-reNode->starttime.tv_sec);
+        fprintf(childOut, "Finished at %lld, runtime duration %f\n", reNode->finishtime.tv_sec, runtime);
         fclose(childOut);
 
         // parent printing to files
         snprintf(fileName, FILENAME_LENGTH, "%d.err", (int)wpid); // create the error file name
         FILE* childErr = fopen(fileName, "a");
         if(WIFSIGNALED(status)){
-            fprintf(childErr, "Killed with signal %d", WTERMSIG(status)); // prints if the child was killed by signal
+            fprintf(childErr, "Killed with signal %d\n", WTERMSIG(status)); // prints if the child was killed by signal
         } else {
-            fprintf(childErr, "Exited with exitcode = %d", status); // prints the exitcode of the finished child
+            fprintf(childErr, "Exited with exitcode = %d\n", status); // prints the exitcode of the finished child
+        }
+
+        // Restarting logic
+        if(runtime <= 2){
+            fprintf(childErr, "spawning too fast\n");
+        } else {
+            pid = fork();
+            if (pid == -1) {
+                fprintf(stderr, "Fork Failed");
+                exit(1);
+            } else if (pid > 0){ // parent
+                // Create the hash node structure for the command
+                struct nlist *np = insert(reNode->command, pid, reNode->index);
+                clock_gettime(CLOCK_MONOTONIC, &np->starttime); // start timer
+            }else if (pid == 0){ // child
+                childRun(fileName, inCursor, commandIndex);
+            }
+            // Print restarting
+            snprintf(fileName, FILENAME_LENGTH, "%d.out", (int)pid); // create the output file name
+            FILE* restartOut = fopen(fileName, "a");
+            fprintf(restartOut, "RESTARTING\n");
+            fclose(restartOut);
         }
         fclose(childErr);
+
     }
     return 0;
 }
@@ -205,4 +204,33 @@ void printHashTable(){
         if(hashtab[i] != NULL)
             printf("Found %d\n", i);
     }
+}
+
+void childRun(char* fileName, char* inCursor, int commandIndex){
+    // redirects stdout and stderr
+    snprintf(fileName, FILENAME_LENGTH, "%d.out", getpid()); // create the output file
+    int fdOut = open(fileName, O_RDWR | O_CREAT | O_APPEND, 0666);
+    snprintf(fileName, FILENAME_LENGTH, "%d.err", getpid()); // create the error file
+    int fdErr = open(fileName, O_RDWR | O_CREAT | O_APPEND, 0666);
+    dup2(fdOut, 1);
+    close(fdOut);
+    dup2(fdErr, 2);
+    close(fdErr);
+
+    fprintf(stdout,"Starting command %d: child %d pid of parent %d\n", commandIndex, getpid(), getppid());
+    fflush(stdout);
+    // Splits the line for execvp
+    char commandArray[COLS][COLS]; // holds the split commands
+    char* test[COLS]; // array of pointers for execvp
+
+    int cmds = splitCommands(commandArray, inCursor);
+
+    for(int i=0; i<cmds; i++){
+        test[i] = (char*) &commandArray[i];
+    }
+    test[cmds]=NULL; // null terminator for execvp
+
+    execvp(test[0], test); // executes the command
+    fprintf(stderr, "Failed to execute: %s", inCursor);
+    exit(2); // exits with exit code 2 if execvp fails
 }
