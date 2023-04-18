@@ -67,7 +67,7 @@ struct nlist *insert(char *command, int pid, int index){
         hashval = hash(pid);
         np->next = hashtab[hashval];
         hashtab[hashval] = np;
-    } else { } /* case 2: the pid is already there in the hashslot, i.e. lookup found the pid. In this case you can either do nothing, or you may want to set again the command  and index (depends on your implementation). */
+    } else { printf("Case 2\n");} /* case 2: the pid is already there in the hashslot, i.e. lookup found the pid. In this case you can either do nothing, or you may want to set again the command  and index (depends on your implementation). */
     //free((void *) np->defn); /*free previous defn */
     return np;
 }
@@ -90,39 +90,69 @@ char* strdupMalloc(char* s) /* make a duplicate of s */
 #define CURSOR_SIZE 100 // length of cursor for getting input
 
 int splitCommands(char argArray[COLS][COLS], char inString[COLS]);
-void childRun(char* fileName, char* inCursor, int commandIndex);
 
 int main(int argc, char *argv[]) {
-    char inCursor[CURSOR_SIZE] = {0}; // cursor for the input from stdin
+    char inCursor[CURSOR_SIZE]; // cursor for the input from stdin
     int commandIndex = 1; //  keeps track of the number of commands entered
     pid_t pid; // holds the pid for the while loop
 
     // reads the input commands and creates child processes
     int inputLength = 0; // holder for strlength of the cursor
     char fileName[FILENAME_LENGTH] = {0}; // holder for the filename of .out and .err
-    while(fgets((char*) &inCursor, CURSOR_SIZE, stdin) != NULL){
+    while(fgets((char*) &inCursor, CURSOR_SIZE, stdin) != NULL) {
         inputLength = strlen(inCursor);
         if (inCursor[inputLength - 1] == '\n') inCursor[inputLength - 1] = '\0'; // replace newline
-
-        // Create the hash node structure for the command
-        struct nlist *np = insert(inCursor, getpid(), commandIndex);
-        clock_gettime(CLOCK_MONOTONIC, &np->starttime); // start timer
+        if (!strcmp(inCursor, "q")) { break; }
 
         pid = fork();
-        if(pid == -1){
+        if (pid == -1) {
             fprintf(stderr, "Fork Failed");
             exit(1);
-        } else if (pid == 0){ // child
-            childRun(fileName, inCursor, commandIndex);  // runs the child process sequence
+        } else if (pid > 0){ // parent
+            // Create the hash node structure for the command
+            struct nlist *np = insert(inCursor, pid, commandIndex);
+            clock_gettime(CLOCK_MONOTONIC, &np->starttime); // start timer
+        }else if (pid == 0){ // child
+
+            // redirects stdout and stderr
+            snprintf(fileName, FILENAME_LENGTH, "%d.out", getpid()); // create the output file
+            int fdOut = open(fileName, O_RDWR | O_CREAT | O_APPEND, 0666);
+            snprintf(fileName, FILENAME_LENGTH, "%d.err", getpid()); // create the error file
+            int fdErr = open(fileName, O_RDWR | O_CREAT | O_APPEND, 0666);
+            dup2(fdOut, 1);
+            close(fdOut);
+            dup2(fdErr, 2);
+            close(fdErr);
+
+            fprintf(stdout,"Starting command %d: child %d pid of parent %d\n", commandIndex, getpid(), getppid());
+            fflush(stdout);
+            // Splits the line for execvp
+            char commandArray[COLS][COLS]; // holds the split commands
+            char* test[COLS]; // array of pointers for execvp
+
+            int cmds = splitCommands(commandArray, inCursor);
+
+            for(int i=0; i<cmds; i++){
+                test[i] = (char*) &commandArray[i];
+            }
+            test[cmds]=NULL; // null terminator for execvp
+
+            execvp(test[0], test); // executes the command
+            fprintf(stderr, "Failed to execute: %s", inCursor);
+            exit(2); // exits with exit code 2 if execvp fails
         }
         fflush(stdout);
         commandIndex++; // increment the number of processes created
     }
 
+
+
     int status; // holder for the status of children processes
     pid_t wpid; // returned child pid holder
     while((wpid = wait(&status)) > 0){ // wait for all children to finish
         struct nlist* reNode = lookup(wpid);
+        if(reNode == NULL) {printf("Didnt find:%d\n", wpid); continue;}
+        //printf("ReNode:%s\n", reNode->command);
         clock_gettime(CLOCK_MONOTONIC, &reNode->finishtime); // set finish time
 
         //char fileName[FILENAME_LENGTH]; // holder for the filename of .out and .err
@@ -170,31 +200,9 @@ int splitCommands(char argArray[COLS][COLS], char inString[COLS]){
     return commandCount;
 }
 
-void childRun(char* fileName, char* inCursor, int commandIndex){
-    // redirects stdout and stderr
-    snprintf(fileName, FILENAME_LENGTH, "%d.out", getpid()); // create the output file
-    int fdOut = open(fileName, O_RDWR | O_CREAT | O_APPEND, 0666);
-    snprintf(fileName, FILENAME_LENGTH, "%d.err", getpid()); // create the error file
-    int fdErr = open(fileName, O_RDWR | O_CREAT | O_APPEND, 0666);
-    dup2(fdOut, 1);
-    close(fdOut);
-    dup2(fdErr, 2);
-    close(fdErr);
-
-    fprintf(stdout,"Starting command %d: child %d pid of parent %d\n", commandIndex, getpid(), getppid());
-    fflush(stdout);
-    // Splits the line for execvp
-    char commandArray[COLS][COLS]; // holds the split commands
-    char* test[COLS]; // array of pointers for execvp
-
-    int cmds = splitCommands(commandArray, inCursor);
-
-    for(int i=0; i<cmds; i++){
-        test[i] = (char*) &commandArray[i];
+void printHashTable(){
+    for(int i=0; i<HASHSIZE; i++){
+        if(hashtab[i] != NULL)
+            printf("Found %d\n", i);
     }
-    test[cmds]=NULL; // null terminator for execvp
-
-    execvp(test[0], test); // executes the command
-    fprintf(stderr, "Failed to execute: %s", inCursor);
-    exit(2); // exits with exit code 2 if execvp fails
 }
