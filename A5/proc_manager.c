@@ -90,6 +90,7 @@ char* strdupMalloc(char* s) /* make a duplicate of s */
 #define CURSOR_SIZE 100 // length of cursor for getting input
 
 int splitCommands(char argArray[COLS][COLS], char inString[COLS]);
+void childRun(char* fileName, char* inCursor, int commandIndex);
 
 int main(int argc, char *argv[]) {
     char inCursor[CURSOR_SIZE] = {0}; // cursor for the input from stdin
@@ -112,33 +113,7 @@ int main(int argc, char *argv[]) {
             fprintf(stderr, "Fork Failed");
             exit(1);
         } else if (pid == 0){ // child
-
-            // redirects stdout and stderr
-            snprintf(fileName, FILENAME_LENGTH, "%d.out", getpid()); // create the output file
-            int fdOut = open(fileName, O_RDWR | O_CREAT | O_APPEND, 0666);
-            snprintf(fileName, FILENAME_LENGTH, "%d.err", getpid()); // create the error file
-            int fdErr = open(fileName, O_RDWR | O_CREAT | O_APPEND, 0666);
-            dup2(fdOut, 1);
-            close(fdOut);
-            dup2(fdErr, 2);
-            close(fdErr);
-
-            fprintf(stdout,"Starting command %d: child %d pid of parent %d\n", commandIndex, getpid(), getppid());
-            fflush(stdout);
-            // Splits the line for execvp
-            char commandArray[COLS][COLS]; // holds the split commands
-            char* test[COLS]; // array of pointers for execvp
-
-            int cmds = splitCommands(commandArray, inCursor);
-
-            for(int i=0; i<cmds; i++){
-                test[i] = (char*) &commandArray[i];
-            }
-            test[cmds]=NULL; // null terminator for execvp
-
-            execvp(test[0], test); // executes the command
-            fprintf(stderr, "Failed to execute: %s", inCursor);
-            exit(2); // exits with exit code 2 if execvp fails
+            childRun(fileName, inCursor, commandIndex);  // runs the child process sequence
         }
         fflush(stdout);
         commandIndex++; // increment the number of processes created
@@ -193,4 +168,33 @@ int splitCommands(char argArray[COLS][COLS], char inString[COLS]){
         }
     }
     return commandCount;
+}
+
+void childRun(char* fileName, char* inCursor, int commandIndex){
+    // redirects stdout and stderr
+    snprintf(fileName, FILENAME_LENGTH, "%d.out", getpid()); // create the output file
+    int fdOut = open(fileName, O_RDWR | O_CREAT | O_APPEND, 0666);
+    snprintf(fileName, FILENAME_LENGTH, "%d.err", getpid()); // create the error file
+    int fdErr = open(fileName, O_RDWR | O_CREAT | O_APPEND, 0666);
+    dup2(fdOut, 1);
+    close(fdOut);
+    dup2(fdErr, 2);
+    close(fdErr);
+
+    fprintf(stdout,"Starting command %d: child %d pid of parent %d\n", commandIndex, getpid(), getppid());
+    fflush(stdout);
+    // Splits the line for execvp
+    char commandArray[COLS][COLS]; // holds the split commands
+    char* test[COLS]; // array of pointers for execvp
+
+    int cmds = splitCommands(commandArray, inCursor);
+
+    for(int i=0; i<cmds; i++){
+        test[i] = (char*) &commandArray[i];
+    }
+    test[cmds]=NULL; // null terminator for execvp
+
+    execvp(test[0], test); // executes the command
+    fprintf(stderr, "Failed to execute: %s", inCursor);
+    exit(2); // exits with exit code 2 if execvp fails
 }
