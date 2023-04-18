@@ -67,7 +67,7 @@ struct nlist *insert(char *command, int pid, int index){
         hashval = hash(pid);
         np->next = hashtab[hashval];
         hashtab[hashval] = np;
-    } else { printf("Case 2\n");} /* case 2: the pid is already there in the hashslot, i.e. lookup found the pid. In this case you can either do nothing, or you may want to set again the command  and index (depends on your implementation). */
+    } else { } /* case 2: the pid is already there in the hashslot, i.e. lookup found the pid. In this case you can either do nothing, or you may want to set again the command  and index (depends on your implementation). */
     //free((void *) np->defn); /*free previous defn */
     return np;
 }
@@ -91,7 +91,7 @@ char* strdupMalloc(char* s) /* make a duplicate of s */
 
 int splitCommands(char argArray[COLS][COLS], char inString[COLS]);
 void childRun(char* inCursor, int commandIndex);
-
+void freeHash();
 
 int main(int argc, char *argv[]) {
     char inCursor[CURSOR_SIZE]; // cursor for the input from stdin
@@ -170,9 +170,13 @@ int main(int argc, char *argv[]) {
             FILE* restartOut = fopen(fileName, "a");
             fprintf(restartOut, "RESTARTING\n");
             fclose(restartOut);
+            snprintf(fileName, FILENAME_LENGTH, "%d.out", (int)pid); // create the output file name
+            FILE* restartErr = fopen(fileName, "a");
+            fprintf(restartErr, "RESTARTING\n");
+            fclose(restartErr);
         }
         fclose(childErr);
-
+        freeHash();
     }
     return 0;
 }
@@ -202,10 +206,12 @@ int splitCommands(char argArray[COLS][COLS], char inString[COLS]){
     return commandCount;
 }
 
-void printHashTable(){
+void freeHash(){
     for(int i=0; i<HASHSIZE; i++){
-        if(hashtab[i] != NULL)
-            printf("Found %d\n", i);
+        if(hashtab[i] != NULL){
+            free(hashtab[i]->command); // free command alloc
+            free(hashtab[i]); // free struct alloc
+        }
     }
 }
 
