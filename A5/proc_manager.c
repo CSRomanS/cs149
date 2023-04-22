@@ -91,7 +91,7 @@ char* strdupMalloc(char* s) /* make a duplicate of s */
 
 int splitCommands(char argArray[COLS][COLS], char inString[COLS]);
 void childRun(char* inCursor, int commandIndex);
-void freeHash();
+struct nlist* freeNode(struct nlist* node);
 
 int main(int argc, char *argv[]) {
     char inCursor[CURSOR_SIZE]; // cursor for the input from stdin
@@ -101,6 +101,7 @@ int main(int argc, char *argv[]) {
     // reads the input commands and creates child processes
     int inputLength = 0; // holder for strlength of the cursor
 
+    // Spawning child processes while loop
     while(fgets((char*) &inCursor, CURSOR_SIZE, stdin) != NULL) {
         inputLength = strlen(inCursor);
         if (inCursor[inputLength - 1] == '\n') inCursor[inputLength - 1] = '\0'; // replace newline
@@ -121,6 +122,7 @@ int main(int argc, char *argv[]) {
         commandIndex++; // increment the number of processes created
     }
 
+    // Catches the child processes as they return
     int status; // holder for the status of children processes
     pid_t wpid; // returned child pid holder
     char fileName[FILENAME_LENGTH] = {0}; // holder for the filename of .out and .err
@@ -132,12 +134,13 @@ int main(int argc, char *argv[]) {
 
         //float runtime = (float)((reNode->finishtime.tv_nsec - reNode->starttime.tv_nsec)/1000000000);
         //printf("Runtime: %f\n", runtime);
+        float runtime = (reNode->finishtime.tv_sec-reNode->starttime.tv_sec) + ((reNode->finishtime.tv_nsec - reNode->finishtime.tv_nsec) / 1000000000.0);
 
         //char fileName[FILENAME_LENGTH]; // holder for the filename of .out and .err
         snprintf(fileName, FILENAME_LENGTH, "%d.out", (int)wpid); // create the output file name
         FILE* childOut = fopen(fileName, "a");
         fprintf(childOut, "Finished child %d pid of parent %d\n", (int)wpid, getpid());
-        fprintf(childOut, "Finished at %lld, runtime duration %d\n", reNode->finishtime.tv_sec, reNode->finishtime.tv_sec-reNode->starttime.tv_sec);
+        fprintf(childOut, "Finished at %lld, runtime duration %f\n", reNode->finishtime.tv_sec, runtime);
         fclose(childOut);
 
         // parent printing to files
@@ -150,7 +153,7 @@ int main(int argc, char *argv[]) {
         }
 
         // Restarting logic
-        if((reNode->finishtime.tv_sec - reNode->starttime.tv_sec) <= 2){
+        if(runtime <= 2){
             fprintf(childErr, "spawning too fast\n");
         } else {
             pid = fork();
@@ -176,7 +179,7 @@ int main(int argc, char *argv[]) {
             fclose(restartErr);
         }
         fclose(childErr);
-        freeHash();
+        freeNode(reNode); // free memory of the returned node
     }
     return 0;
 }
@@ -206,13 +209,25 @@ int splitCommands(char argArray[COLS][COLS], char inString[COLS]){
     return commandCount;
 }
 
-void freeHash(){
-    for(int i=0; i<HASHSIZE; i++){
-        if(hashtab[i] != NULL){
-            free(hashtab[i]->command); // free command alloc
-            free(hashtab[i]); // free struct alloc
+struct nlist* freeNode(struct nlist* node){
+        if(node != NULL){
+            if(hashtab[hash(node->pid)] == node){ // case 1: node is the only one at the hash table location
+                if(node->next != NULL){
+                    hashtab[hash(node->pid)] = node->next;
+                } else {
+                    hashtab[hash(node->pid)] = NULL; // null out the pointer
+                }
+                free(node->command); // free command alloc
+                free(node); // free struct alloc
+            } else{ // case 2: linked list exists
+                struct nlist* cursor = hashtab[hash(node->pid)];
+                while(cursor->next != node) cursor = cursor->next; // gets the previous node
+                cursor->next = node->next; // set the previous node to the node after
+                free(node->command); // free command alloc
+                free(node); // free struct alloc
+            }
+
         }
-    }
 }
 
 void childRun(char* inCursor, int commandIndex){
