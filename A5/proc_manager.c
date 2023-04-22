@@ -134,13 +134,13 @@ int main(int argc, char *argv[]) {
 
         //float runtime = (float)((reNode->finishtime.tv_nsec - reNode->starttime.tv_nsec)/1000000000);
         //printf("Runtime: %f\n", runtime);
-        float runtime = (reNode->finishtime.tv_sec-reNode->starttime.tv_sec) + ((reNode->finishtime.tv_nsec - reNode->finishtime.tv_nsec) / 1000000000.0);
+        float runtime = (reNode->finishtime.tv_sec-reNode->starttime.tv_sec); + ((reNode->finishtime.tv_nsec - reNode->finishtime.tv_nsec) / 1000000000.0);
 
         //char fileName[FILENAME_LENGTH]; // holder for the filename of .out and .err
         snprintf(fileName, FILENAME_LENGTH, "%d.out", (int)wpid); // create the output file name
         FILE* childOut = fopen(fileName, "a");
         fprintf(childOut, "Finished child %d pid of parent %d\n", (int)wpid, getpid());
-        fprintf(childOut, "Finished at %lld, runtime duration %f\n", reNode->finishtime.tv_sec, runtime);
+        fprintf(childOut, "Finished at %lld, runtime duration %.1f\n", reNode->finishtime.tv_sec, runtime);
         fclose(childOut);
 
         // parent printing to files
@@ -173,7 +173,7 @@ int main(int argc, char *argv[]) {
             FILE* restartOut = fopen(fileName, "a");
             fprintf(restartOut, "RESTARTING\n");
             fclose(restartOut);
-            snprintf(fileName, FILENAME_LENGTH, "%d.out", (int)pid); // create the output file name
+            snprintf(fileName, FILENAME_LENGTH, "%d.err", (int)pid); // create the output file name
             FILE* restartErr = fopen(fileName, "a");
             fprintf(restartErr, "RESTARTING\n");
             fclose(restartErr);
