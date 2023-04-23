@@ -8,10 +8,12 @@
 #include <time.h>
 
 /**
- * Description:
+ * Description: Starts and restarts entered commands
+ * Stores running processes in a hash table
+ * Restarts command if it runs more than 2 seconds
  * Author Name: Roman Shpilberg
  * Author Emails: roman.shpilberg@sjsu.edu
- * Last Modified Date: 4/15/2023
+ * Last Modified Date: 4/22/2023
  * Creation Date: 4/15/2023
  */
 
@@ -84,15 +86,17 @@ char* strdupMalloc(char* s) /* make a duplicate of s */
     return p;
 }
 
-#define ROWS 100 // number of commands in the array
 #define COLS 31 // max length of commands
 #define FILENAME_LENGTH 15
 #define CURSOR_SIZE 100 // length of cursor for getting input
 
 int splitCommands(char argArray[COLS][COLS], char inString[COLS]);
 void childRun(char* inCursor, int commandIndex);
-struct nlist* freeNode(struct nlist* node);
+void freeNode(struct nlist* node);
 
+/**
+ * Main driver for the program
+ */
 int main(int argc, char *argv[]) {
     char inCursor[CURSOR_SIZE]; // cursor for the input from stdin
     int commandIndex = 1; //  keeps track of the number of commands entered
@@ -209,7 +213,11 @@ int splitCommands(char argArray[COLS][COLS], char inString[COLS]){
     return commandCount;
 }
 
-struct nlist* freeNode(struct nlist* node){
+/**
+ * Frees the memory of a node, handles stack/linked list updating
+ * @param node the node to remove
+ */
+void freeNode(struct nlist* node){
         if(node != NULL){
             if(hashtab[hash(node->pid)] == node){ // case 1: node is the only one at the hash table location
                 if(node->next != NULL){
@@ -230,6 +238,11 @@ struct nlist* freeNode(struct nlist* node){
         }
 }
 
+/**
+ * Runs the child setup code and then executes the command
+ * @param inCursor the command to execute
+ * @param commandIndex the index number of the command to execute
+ */
 void childRun(char* inCursor, int commandIndex){
     char fileName[FILENAME_LENGTH] = {0}; // holder for the filename of .out and .err
     // redirects stdout and stderr
