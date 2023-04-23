@@ -162,7 +162,7 @@ int main(int argc, char *argv[]) {
                 exit(1);
             } else if (pid > 0){ // parent
                 // Create the hash node structure for the command
-                printf("Restarting Index: %d", reNode->index);
+                //printf("Restarting Index: %d", reNode->index);
                 struct nlist *np = insert(reNode->command, pid, reNode->index);
                 clock_gettime(CLOCK_MONOTONIC, &np->starttime); // start timer
             }else if (pid == 0){ // child
