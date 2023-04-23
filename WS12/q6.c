@@ -1,5 +1,8 @@
 /**
- * Description: WS12 Question4
+ * Description: WS12 Question6
+ * This program runs to completion normally, exiting with code 0
+ * Valgrind however, does complain about an "Invalid read" on a freed memory segment
+ *  It does report that there are no memory leaks
  *
  * Author Name: Roman Shpilberg
  * Author Emails: roman.shpilberg@sjsu.edu
@@ -12,10 +15,9 @@
 
 int main(int argc, char *argv[]) {
     int* data = (int*) malloc(sizeof(int)*100);
-    int i = 1;
-    for(int* cur = data; cur != NULL; cur++){
-        *cur = i++;
-    }
+    data[50] = 10;
+    free(data);
+    printf("%d", data[50]);
     return 0;
 }
 
