@@ -1,0 +1,81 @@
+    1  make all
+    2  sudo make all
+    3  make all
+    4  sudo apt-get install make
+    5  make all
+    6  gcc  -ansi  -I../include   -DLINUX  -D_GNU_SOURCE  -Wall   -o test1 test1.c  -L../lib -lapue
+    7  make test1
+    8  make all
+    9  make test1
+   10  make all
+   11  makeall
+   12  make all
+   13  sudo make all
+   14  wget http://www.apuebook.com/src.3e.tar.gz
+   15  gunzip src.3e.tar.gz
+   16  tar xvf src.3e.tar
+   17  cd apue.3e
+   18  cd proc
+   19  make all
+   20  ./test1
+   21  make all
+   22  ./test1
+   23  make all
+   24  ./test1
+   25  make all
+   26  ./test1
+   27  proc_manager
+   28  ./proc_Manager
+   29  ./proc_manager
+   30  ./mycat
+   31  make all
+   32  make mycat.c
+   33  make mycat
+   34  ./mycat
+   35  make all
+   36  ./sigusr &
+   37  kill -SIGUSR1 17283
+   38  kill -SIGUSR2 17283
+   39  kill -SIGCONT 17283
+   40  kill -9 pid
+   41  kill -9 17283
+   42  history > worksheet9.log
+   43  make all
+   44  ./siguser &
+   45  git reset --hard origin/master
+   46  git pull
+   47  valgrind --leak-check=full /home/cs149/Desktop/A4Working/mem_tracer
+   48  git push
+   49  pkill sleep
+   50  valgrind --leak-check=full /home/cs149/Desktop/A4Working/mem_tracer
+   51  valgrind --leak-check=full ./proc_manager
+   52  killall sleep
+   53  valgrind --leak-check=full ./q4
+   54  valgrind --leak-check=yes ./q4
+   55  gdb run ./q4
+   56  gunzip src.3e.tar.gz
+   57  tar xvf src.3e.tar
+   58  cd apue.3e
+   59  cd proc
+   60  rsync -arv filedir/ filedir1/
+   61  cp -r filedir/ filedir2/
+   62  ls -latr filedir1/
+   63  ls -latr filedir2/
+   
+   Both directories take up the same amount of space on the disk and have the same amount of files. 
+However, the order of files displayed is different. 
+   
+   64  cd filedir1
+   65  find -name reread2.c
+   66  find . -name reread2.c
+   67  find /. -name reread2.c
+   68  locate reread2.c
+   69  sudo apt install mlocate
+   70  locate reread2.c
+   71  rmdir daemons
+   72  rm access
+   73  rm access.c
+   74  find ./ *.c
+   75  locate ./ *.c
+   76  rm ftw8.c
+   77  history > worksheet13.log
