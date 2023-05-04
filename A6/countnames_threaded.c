@@ -60,10 +60,10 @@ struct NAME_STRUCT
     pthread_mutex_t lock;
     struct NAME_STRUCT *next;
 };
-typedef struct NAME_STRUCT THREAD_NAME;
+//typedef struct NAME_STRUCT THREAD_NAME;
 
 #define HASHSIZE 101
-static struct THREAD_NAME *hashtab[HASHSIZE]; /* pointer table */
+static struct NAME_STRUCT *hashtab[HASHSIZE]; /* pointer table */
 
 /**
  * hash from a string
@@ -84,8 +84,8 @@ unsigned hash(char *s){
  * @param s string to match
  * @return pointer to struct if found, NULL if not found
  */
-THREAD_NAME *lookup(char *s){
-    THREAD_NAME *np;
+struct NAME_STRUCT *lookup(char *s){
+    struct NAME_STRUCT *np;
     for (np = hashtab[hash(s)]; np != NULL; np = np->next)
         if (strcmp(s, np->name) == 0)
             return np; /* found */
@@ -98,44 +98,83 @@ THREAD_NAME *lookup(char *s){
  * @param name
  * @return
  */
-THREAD_NAME *insert(char *name){
-    THREAD_NAME *np;
+struct NAME_STRUCT *insert(char *name){
+    struct NAME_STRUCT *np;
     unsigned hashval;
     if ((np = lookup(name)) == NULL) { /* case 1: the name is not found, create a new one */
-        np = (THREAD_NAME *) malloc(sizeof(*np));
+        // Creates a new node
+        np = (struct NAME_STRUCT *) malloc(sizeof(*np));
         if (np == NULL || (np->name = strdup(name)) == NULL)
             return NULL;
         np->count = 1;
         hashval = hash(name);
+
+        pthread_mutex_lock(&tlock3); // critical section starts
         np->next = hashtab[hashval];
         hashtab[hashval] = np;
-    } else { np->count += 1; } /* case 2: name exists, just increment count */
+        pthread_mutex_unlock(&tlock3); // critical section starts
+    } else { /* case 2: name exists, just increment count */
+        pthread_mutex_lock(&np->lock); // critical section starts
+        np->count += 1;
+        pthread_mutex_unlock(&np->lock); // critical section starts
+    }
     return np;
 }
 
+/**
+ * Struct for passing filename to thread
+ */
+struct __myarg_t{
+    char fileName[COLS];
+};
+
+void printHashTable(){
+    for(int i=0; i<HASHSIZE; i++){
+        if(hashtab[i] != NULL){
+            struct NAME_STRUCT* cur = hashtab[i];
+            while(cur != NULL){
+                printf("%s: %d\n", cur->name, cur->count);
+                free(cur->name); // free the name
+                struct NAME_STRUCT* temp = cur;
+                cur = cur->next; // go to the next node
+                free(temp);
+            }
+        }
+    }
+}
 
 /*********************************************************
 // function main
 *********************************************************/
 int main(int argc, char *argv[]){
-    if(argc != 3) printf("Please enter only 2 file names");
+    if(argc != 3) {
+        printf("Please enter only 2 file names\n");
+        return 0;
+    }
+    struct __myarg_t args1;
+    struct __myarg_t args2;
+    strcpy((char*)args1.fileName, argv[1]);
+    strcpy((char*)args2.fileName, argv[2]);
+
+    printf("============================== Log Messages ==============================\n");
     //TODO similar interface as A2: give as command-line arguments three filenames of numbers (the numbers in the files are newline-separated).
+    printf("create first thread\n");
+    pthread_create(&tid1,NULL,thread_runner,&args1);
 
-    printf("create first thread");
-    pthread_create(&tid1,NULL,thread_runner,NULL);
-
-    printf("create second thread");
-    pthread_create(&tid2,NULL,thread_runner,NULL);
+    printf("create second thread\n");
+    pthread_create(&tid2,NULL,thread_runner,&args2);
 
     //printf("wait for first thread to exit");
     pthread_join(tid1,NULL);
-    printf("first thread exited");
+    printf("first thread exited\n");
 
     //printf("wait for second thread to exit");
     pthread_join(tid2,NULL);
-    printf("second thread exited");
+    printf("second thread exited\n");
 
     //TODO print out the sum variable with the sum of all the numbers
+    printf("============================== Name Counts ==============================\n");
+    printHashTable();
 
     exit(0);
 
@@ -166,9 +205,9 @@ void logprint(char* messages){
 
     // print local time
     if (hours < 12)	// before midday
-        printf("Logindex %d, thread %d, PID %d, %02d/%02d/%d %02d:%02d:%02d am: %s", getLogIndex(), (int)pthread_self(), (int)getpid(), day, month, year, hours, minutes, seconds, messages);
+        printf("Logindex %d, thread %d, PID %d, %02d/%02d/%d %02d:%02d:%02d am: %s\n", getLogIndex(), (int)pthread_self(), (int)getpid(), month, day, year, hours, minutes, seconds, messages);
     else	// after midday
-        printf("Logindex %d, thread %d, PID %d, %02d/%02d/%d %02d:%02d:%02d pm: %s", getLogIndex(), (int)pthread_self(), (int)getpid(), day, month, year, hours-12, minutes, seconds, messages);
+        printf("Logindex %d, thread %d, PID %d, %02d/%02d/%d %02d:%02d:%02d pm: %s\n", getLogIndex(), (int)pthread_self(), (int)getpid(), month, day, year, hours-12, minutes, seconds, messages);
 
 }
 
@@ -180,7 +219,6 @@ void* thread_runner(void* x)
     pthread_t me;
 
     me = pthread_self();
-    //printf("This is thread %ld (p=%p)",me,p);
 
     pthread_mutex_lock(&tlock2); // critical section starts
     if (p==NULL) {
@@ -197,7 +235,38 @@ void* thread_runner(void* x)
         logprint(fString);
     }
 
+    // File Reading Logic
+    // Getting filename from arg x
+    struct __myarg_t *m = (struct __myarg_t*) x;
 
+    // Open file
+    FILE *nameFile = fopen(m->fileName, "r");
+    // file error
+    if(nameFile == NULL){
+        printf("Cannot open file: %s", m->fileName);
+        exit(1);
+    }
+
+    snprintf(fString, 100,"opened file %s", m->fileName);
+    logprint(fString);
+
+    // Processing File
+    char nameCursor[COLS];
+    int lineCount = 0; // keeps a count of the number of lines read from the file
+    while(fgets(nameCursor, COLS+1, nameFile)){
+        lineCount++;
+
+        // strips newline characters
+        if (nameCursor[strlen(nameCursor) - 1] == '\n') nameCursor[strlen(nameCursor) - 1] = '\0';
+
+        // filters empty lines
+        if (strlen(nameCursor) == 0){
+            fprintf(stderr, "Warning - file %s line %d is empty.\n", m->fileName, lineCount);
+            continue;
+        }
+        insert((char*)nameCursor);
+    }
+    fclose(nameFile); // close file
     /**
      * //TODO implement any thread name counting functionality you need.
      * Assign one file per thread. Hint: you can either pass each argv filename as a thread_runner argument from main.
@@ -210,7 +279,8 @@ void* thread_runner(void* x)
 
     pthread_mutex_lock(&tlock2); // critical section starts
     if (p!=NULL && p->creator==me) {
-        printf("This is thread %ld and I delete THREADDATA",me);
+        snprintf(fString, 100, "This is thread %ld and I delete THREADDATA",me);
+        logprint(fString);
         /**
          * TODO Free the THREADATA object.
          * Freeing should be done by the same thread that created it.
@@ -219,9 +289,14 @@ void* thread_runner(void* x)
         free(p);
         p=NULL;
     } else {
-        printf("This is thread %ld and I can access the THREADDATA",me);
+        snprintf(fString, 100,"This is thread %ld and I can access the THREADDATA",me);
+        logprint(fString);
     }
     pthread_mutex_unlock(&tlock2);  // critical section ends
+
+    // deallocate the log printing string
+    free(fString);
+    fString = NULL;
 
     pthread_exit(NULL);
     return NULL;
