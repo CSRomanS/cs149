@@ -12,6 +12,7 @@
 #include <string.h>
 #include <pthread.h>
 #include <stdbool.h>
+#include <unistd.h>
 
 #define ROWS 100 // number of names in the array
 #define COLS 31 // max length of names
@@ -205,9 +206,9 @@ void logprint(char* messages){
 
     // print local time
     if (hours < 12)	// before midday
-        printf("Logindex %d, thread %d, PID %d, %02d/%02d/%d %02d:%02d:%02d am: %s\n", getLogIndex(), (int)pthread_self(), (int)getpid(), month, day, year, hours, minutes, seconds, messages);
+        printf("Logindex %d, thread %d, PID %d, %02d/%02d/%d %02d:%02d:%02d am: %s\n", getLogIndex(), (int)pthread_self(), getpid(), month, day, year, hours, minutes, seconds, messages);
     else	// after midday
-        printf("Logindex %d, thread %d, PID %d, %02d/%02d/%d %02d:%02d:%02d pm: %s\n", getLogIndex(), (int)pthread_self(), (int)getpid(), month, day, year, hours-12, minutes, seconds, messages);
+        printf("Logindex %d, thread %d, PID %d, %02d/%02d/%d %02d:%02d:%02d pm: %s\n", getLogIndex(), (int)pthread_self(), getpid(), month, day, year, hours-12, minutes, seconds, messages);
 
 }
 
