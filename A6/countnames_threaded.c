@@ -57,6 +57,7 @@ struct NAME_STRUCT
 {
     char* name;
     int count;
+    pthread_mutex_t lock;
     struct NAME_STRUCT *next;
 };
 typedef struct NAME_STRUCT THREAD_NAME;
@@ -126,11 +127,11 @@ int main(int argc, char *argv[]){
     printf("create second thread");
     pthread_create(&tid2,NULL,thread_runner,NULL);
 
-    printf("wait for first thread to exit");
+    //printf("wait for first thread to exit");
     pthread_join(tid1,NULL);
     printf("first thread exited");
 
-    printf("wait for second thread to exit");
+    //printf("wait for second thread to exit");
     pthread_join(tid2,NULL);
     printf("second thread exited");
 
@@ -140,6 +141,36 @@ int main(int argc, char *argv[]){
 
 }//end main
 
+int getLogIndex(){
+    int result;
+    pthread_mutex_lock(&tlock1); // critical section starts
+    logindex += 1; // increments the index
+    result = logindex; // sets the return
+    pthread_mutex_unlock(&tlock1); // critical section starts
+    return result;
+}
+
+void logprint(char* messages){
+    int hours, minutes, seconds, day, month, year;
+    time_t now;
+    time(&now);
+    struct tm *local = localtime(&now);
+
+    hours = local->tm_hour;      	// get hours since midnight (0-23)
+    minutes = local->tm_min;     	// get minutes passed after the hour (0-59)
+    seconds = local->tm_sec;     	// get seconds passed after minute (0-59)
+
+    day = local->tm_mday;        	// get day of month (1 to 31)
+    month = local->tm_mon + 1;   	// get month of year (0 to 11)
+    year = local->tm_year + 1900;	// get year since 1900
+
+    // print local time
+    if (hours < 12)	// before midday
+        printf("Logindex %d, thread %d, PID %d, %02d/%02d/%d %02d:%02d:%02d am: %s", getLogIndex(), (int)pthread_self(), (int)getpid(), day, month, year, hours, minutes, seconds, messages);
+    else	// after midday
+        printf("Logindex %d, thread %d, PID %d, %02d/%02d/%d %02d:%02d:%02d pm: %s", getLogIndex(), (int)pthread_self(), (int)getpid(), day, month, year, hours-12, minutes, seconds, messages);
+
+}
 
 /**********************************************************************
 // function thread_runner runs inside each thread
@@ -149,7 +180,7 @@ void* thread_runner(void* x)
     pthread_t me;
 
     me = pthread_self();
-    printf("This is thread %ld (p=%p)",me,p);
+    //printf("This is thread %ld (p=%p)",me,p);
 
     pthread_mutex_lock(&tlock2); // critical section starts
     if (p==NULL) {
@@ -157,11 +188,13 @@ void* thread_runner(void* x)
         p->creator=me;
     }
     pthread_mutex_unlock(&tlock2);  // critical section ends
-
+    char *fString = malloc(sizeof(char)*100);
     if (p!=NULL && p->creator==me) {
-        printf("This is thread %ld and I created THREADDATA %p",me,p);
+        snprintf(fString, 100, "This is thread %ld and I created THREADDATA %p",me,p);
+        logprint(fString);
     } else {
-        printf("This is thread %ld and I can access the THREADDATA %p",me,p);
+        snprintf(fString, 100,"This is thread %ld and I can access the THREADDATA %p",me,p);
+        logprint(fString);
     }
 
 
@@ -175,7 +208,7 @@ void* thread_runner(void* x)
 
 
 
-    // TODO use mutex to make this a start of a critical section
+    pthread_mutex_lock(&tlock2); // critical section starts
     if (p!=NULL && p->creator==me) {
         printf("This is thread %ld and I delete THREADDATA",me);
         /**
@@ -183,11 +216,12 @@ void* thread_runner(void* x)
          * Freeing should be done by the same thread that created it.
          * See how the THREADDATA was created for an example of how this is done.
          */
-
+        free(p);
+        p=NULL;
     } else {
         printf("This is thread %ld and I can access the THREADDATA",me);
     }
-    // TODO critical section ends
+    pthread_mutex_unlock(&tlock2);  // critical section ends
 
     pthread_exit(NULL);
     return NULL;
