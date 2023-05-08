@@ -105,6 +105,7 @@ struct NAME_STRUCT *insert(char *name){
             return NULL;
         np->count = 1;
         hashval = hash(name);
+        np->lock = (pthread_mutex_t)PTHREAD_MUTEX_INITIALIZER;
 
         pthread_mutex_lock(&tlock3); // critical section starts
         np->next = hashtab[hashval];
