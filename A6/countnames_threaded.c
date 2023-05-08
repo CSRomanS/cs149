@@ -1,9 +1,12 @@
 /**
  * Description: This file counts the number of names in a number of given text file
  *              Uses a separate thread for each file entered
+ *              Uses locks for critical sections
+ *              Outputs timestamped log messages with unique log indexes
+ *              Template taken from Files/code/a6
  * Author Name: Roman Shpilberg
  * Author Emails: roman.shpilberg@sjsu.edu
- * Last Modified Date: 5/1/2023
+ * Last Modified Date: 5/8/2023
  * Creation Date: 5/1/2023
  */
 
@@ -14,22 +17,17 @@
 #include <stdbool.h>
 #include <unistd.h>
 
-#define ROWS 100 // number of names in the array
 #define COLS 31 // max length of names
 
 //thread mutex lock for access to the log index
-//TODO you need to use this mutexlock for mutual exclusion
-//when you print log messages from each thread
 pthread_mutex_t tlock1 = PTHREAD_MUTEX_INITIALIZER;
 
 
 //thread mutex lock for critical sections of allocating THREADDATA
-//TODO you need to use this mutexlock for mutual exclusion
 pthread_mutex_t tlock2 = PTHREAD_MUTEX_INITIALIZER;
 
 
 //thread mutex lock for access to the name counts data structure
-//TODO you need to use this mutexlock for mutual exclusion
 pthread_mutex_t tlock3 = PTHREAD_MUTEX_INITIALIZER;
 
 
@@ -50,25 +48,23 @@ THREADDATA* p=NULL;
 int logindex=0;
 int *logip = &logindex;
 
-//The name counts.
-// You can use any data structure you like, here are 2 proposals: a linked list OR an array (up to 100 names).
-//The linked list will be faster since you only need to lock one node, while for the array you need to lock the whole array.
-//You can use a linked list template from A5. You should also consider using a hash table, like in A5 (even faster).
+/**
+ * Name node for use in the hash table
+ */
 struct NAME_STRUCT
 {
     char* name;
     int count;
-    pthread_mutex_t lock;
-    struct NAME_STRUCT *next;
+    pthread_mutex_t lock; // lock for this node
+    struct NAME_STRUCT *next; // next node for when collision happens
 };
-//typedef struct NAME_STRUCT THREAD_NAME;
 
 #define HASHSIZE 101
 static struct NAME_STRUCT *hashtab[HASHSIZE]; /* pointer table */
 
 /**
  * hash from a string
- * Gotten from Files/code/a5/hashtable_for_a5/dictionary_hashtable.c
+ * Taken from Files/code/a5/hashtable_for_a5/dictionary_hashtable.c
  * @param s string to hash
  * @return hash value
  */
@@ -81,7 +77,7 @@ unsigned hash(char *s){
 
 /**
  * Traverse the linked list to find a match
- * Gotten from Files/code/a5/hashtable_for_a5/dictionary_hashtable.c
+ * Modified from Files/code/a5/hashtable_for_a5/dictionary_hashtable.c
  * @param s string to match
  * @return pointer to struct if found, NULL if not found
  */
@@ -95,9 +91,9 @@ struct NAME_STRUCT *lookup(char *s){
 
 /**
  * Inserts a new name node or increments the count
- * Gotten from Files/code/a5/hashtable_for_a5/dictionary_hashtable.c
- * @param name
- * @return
+ * Modified from Files/code/a5/hashtable_for_a5/dictionary_hashtable.c
+ * @param name the name to add or increment
+ * @return a pointer to the node added or incremented
  */
 struct NAME_STRUCT *insert(char *name){
     struct NAME_STRUCT *np;
@@ -129,10 +125,13 @@ struct __myarg_t{
     char fileName[COLS];
 };
 
+/**
+ * Prints and Frees the HashTable at the end of the program
+ */
 void printHashTable(){
-    for(int i=0; i<HASHSIZE; i++){
+    for(int i=0; i<HASHSIZE; i++){ // Traverse the hash table looking for non-empty elements
         if(hashtab[i] != NULL){
-            struct NAME_STRUCT* cur = hashtab[i];
+            struct NAME_STRUCT* cur = hashtab[i]; // Cursor for traversing and freeing the linked list
             while(cur != NULL){
                 printf("%s: %d\n", cur->name, cur->count);
                 free(cur->name); // free the name
@@ -144,13 +143,16 @@ void printHashTable(){
     }
 }
 
-/*********************************************************
-// function main
-*********************************************************/
+/**
+ * Main function, driver for the program
+ * @param argc the number of arguments entered into commandline
+ * @param argv the list of files entered as arguments in commandline
+ * @return exit code
+ */
 int main(int argc, char *argv[]){
-    if(argc != 3) {
+    if(argc != 3) { // runs only if two file names are entered
         printf("Please enter only 2 file names\n");
-        return 0;
+        exit(-1);
     }
     struct __myarg_t args1;
     struct __myarg_t args2;
@@ -158,7 +160,6 @@ int main(int argc, char *argv[]){
     strcpy((char*)args2.fileName, argv[2]);
 
     printf("============================== Log Messages ==============================\n");
-    //TODO similar interface as A2: give as command-line arguments three filenames of numbers (the numbers in the files are newline-separated).
     printf("create first thread\n");
     pthread_create(&tid1,NULL,thread_runner,&args1);
 
@@ -172,15 +173,17 @@ int main(int argc, char *argv[]){
     //printf("wait for second thread to exit");
     pthread_join(tid2,NULL);
     printf("second thread exited\n");
-
-    //TODO print out the sum variable with the sum of all the numbers
     printf("============================== Name Counts ==============================\n");
-    printHashTable();
+    printHashTable(); // prints and frees the hash table
 
     exit(0);
 
 }//end main
 
+/**
+ * Thread-safe implementation to increment and return the log index
+ * @return unique log index
+ */
 int getLogIndex(){
     int result;
     pthread_mutex_lock(&tlock1); // critical section starts
@@ -190,6 +193,11 @@ int getLogIndex(){
     return result;
 }
 
+/**
+ * Prints out a message with an appended timestamp and thread/process identifiers
+ * Time implementation taken from Files/code/a6/timer.c
+ * @param messages the message to print in addition to the timestamp
+ */
 void logprint(char* messages){
     int hours, minutes, seconds, day, month, year;
     time_t now;
@@ -252,7 +260,7 @@ void* thread_runner(void* x)
     logprint(fString);
 
     // Processing File
-    char nameCursor[COLS];
+    char nameCursor[COLS]; // Cursor for getting names from a file
     int lineCount = 0; // keeps a count of the number of lines read from the file
     while(fgets(nameCursor, COLS+1, nameFile)){
         lineCount++;
@@ -268,14 +276,6 @@ void* thread_runner(void* x)
         insert((char*)nameCursor);
     }
     fclose(nameFile); // close file
-    /**
-     * //TODO implement any thread name counting functionality you need.
-     * Assign one file per thread. Hint: you can either pass each argv filename as a thread_runner argument from main.
-     * Or use the logindex to index argv, since every thread will increment the logindex anyway
-     * when it opens a file to print a log message (e.g. logindex could also index argv)....
-     * //Make sure to use any mutex locks appropriately
-     */
-
 
 
     pthread_mutex_lock(&tlock2); // critical section starts
